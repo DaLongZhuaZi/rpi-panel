@@ -1,0 +1,42 @@
+.App {
+  text-align: center;
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+/* 响应式容器 */
+.container-fluid {
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  margin: 0;
+  overflow: hidden;
+}
+
+/* 添加适应不同屏幕尺寸的内容容器 */
+.content-wrapper {
+  flex: 1;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+/* 卡片样式优化，适应不同尺寸屏幕 */
+.card {
+  width: 100%;
+  margin-bottom: clamp(0.5rem, 2vw, 1rem);
+  border-radius: 0.5rem;
+  overflow: hidden;
+}
+
+/* 确保页面填充整个视口 */
+.page-container {
+  min-height: 100%;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+} 
