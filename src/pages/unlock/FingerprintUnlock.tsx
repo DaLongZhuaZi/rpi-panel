@@ -43,30 +43,33 @@ const FingerprintUnlock: React.FC = () => {
     };
   }, []);
   
-  // 开始指纹扫描过程
-  const startScanning = () => {
+  // 基于树莓派本地后端 API 的指纹识别
+  const scanFingerprint = async (): Promise<boolean> => {
+    try {
+      const response = await fetch('/api/fingerprint/scan', { method: 'POST' });
+      if (!response.ok) throw new Error('请求失败');
+      const data = await response.json();
+      return data.success;
+    } catch (e) {
+      return false;
+    }
+  };
+  
+  const startScanning = async () => {
     if (status === 'waiting') {
       setStatus('scanning');
-      
-      // 模拟指纹识别过程 (2秒后返回结果)
-      setTimeout(() => {
-        // 模拟指纹识别成功
-        const success = Math.random() > 0.3; // 70%的成功率
-        
-        if (success) {
-          setStatus('success');
-          // 成功后3秒返回主界面
-          setTimeout(() => {
-            navigate('/user');
-          }, 3000);
-        } else {
-          setStatus('error');
-          // 失败后2秒重置状态
-          setTimeout(() => {
-            setStatus('waiting');
-          }, 2000);
-        }
-      }, 2000);
+      const success = await scanFingerprint();
+      if (success) {
+        setStatus('success');
+        setTimeout(() => {
+          navigate('/user');
+        }, 3000);
+      } else {
+        setStatus('error');
+        setTimeout(() => {
+          setStatus('waiting');
+        }, 2000);
+      }
     }
   };
   

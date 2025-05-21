@@ -111,57 +111,51 @@ declare module 'events' {
   export = EventEmitter;
 }
 
-// 声明@ant-design/icons组件
+// 自定义主题颜色变量定义
+interface ThemeColors {
+  primary: string;
+  'primary-dark': string;
+  'primary-light': string;
+  secondary: string;
+  'secondary-dark': string;
+  'secondary-light': string;
+  background: string;
+  'background-light': string;
+  success: string;
+  warning: string;
+  error: string;
+  info: string;
+}
+
+// 为了解决Ant Design图标组件问题
 declare module '@ant-design/icons' {
-  import React from 'react';
-  
-  // 图标组件接口
-  export interface IconComponentProps {
+  // 定义图标组件接口
+  interface IconProps {
     className?: string;
-    onClick?: React.MouseEventHandler<HTMLElement>;
     style?: React.CSSProperties;
     [key: string]: any;
   }
   
-  // 所有图标组件类型
-  export const LockOutlined: React.FC<IconComponentProps>;
-  export const ScanOutlined: React.FC<IconComponentProps>;
-  export const MobileOutlined: React.FC<IconComponentProps>;
-  export const ClockCircleOutlined: React.FC<IconComponentProps>;
-  export const EnvironmentOutlined: React.FC<IconComponentProps>;
-  export const InfoCircleOutlined: React.FC<IconComponentProps>;
-  export const UnlockOutlined: React.FC<IconComponentProps>;
-  export const ArrowLeftOutlined: React.FC<IconComponentProps>;
-  export const DeleteOutlined: React.FC<IconComponentProps>;
-  export const CheckOutlined: React.FC<IconComponentProps>;
-  export const LoadingOutlined: React.FC<IconComponentProps>;
-  export const DashboardOutlined: React.FC<IconComponentProps>;
-  export const KeyOutlined: React.FC<IconComponentProps>;
-  export const AppstoreOutlined: React.FC<IconComponentProps>;
-  export const SettingOutlined: React.FC<IconComponentProps>;
-  export const MenuOutlined: React.FC<IconComponentProps>;
-  export const CloseOutlined: React.FC<IconComponentProps>;
-  export const ExperimentOutlined: React.FC<IconComponentProps>;
-  export const CheckCircleOutlined: React.FC<IconComponentProps>;
-  export const CloseCircleOutlined: React.FC<IconComponentProps>;
-  export const ExclamationCircleOutlined: React.FC<IconComponentProps>;
-  export const ReloadOutlined: React.FC<IconComponentProps>;
-  export const UserOutlined: React.FC<IconComponentProps>;
-  export const WifiOutlined: React.FC<IconComponentProps>;
-  export const ApiOutlined: React.FC<IconComponentProps>;
-  export const EditOutlined: React.FC<IconComponentProps>;
-  export const PlusOutlined: React.FC<IconComponentProps>;
-  export const DeleteOutlined: React.FC<IconComponentProps>;
-  export const SearchOutlined: React.FC<IconComponentProps>;
-  export const LockOutlined: React.FC<IconComponentProps>;
-  export const UnlockOutlined: React.FC<IconComponentProps>;
-  export const ScanOutlined: React.FC<IconComponentProps>;
-  
-  
-  // IconComponent类型
-  export type IconComponent = React.FC<IconComponentProps>;
-  
-  // 其他可能需要的图标，后续根据需要添加
+  export const ApiOutlined: React.FC<IconProps>;
+  export const WifiOutlined: React.FC<IconProps>;
+  export const InfoCircleOutlined: React.FC<IconProps>;
+  export const CheckOutlined: React.FC<IconProps>;
+  export const CloseOutlined: React.FC<IconProps>;
+  export const LoadingOutlined: React.FC<IconProps>;
+  export const SettingOutlined: React.FC<IconProps>;
+  export const TeamOutlined: React.FC<IconProps>;
+  export const LockOutlined: React.FC<IconProps>;
+  export const DashboardOutlined: React.FC<IconProps>;
+  export const LogoutOutlined: React.FC<IconProps>;
+  export const MenuFoldOutlined: React.FC<IconProps>;
+  export const MenuUnfoldOutlined: React.FC<IconProps>;
+  export const BankOutlined: React.FC<IconProps>;
+  export const HomeOutlined: React.FC<IconProps>;
+  export const PlusOutlined: React.FC<IconProps>;
+  export const SyncOutlined: React.FC<IconProps>;
+  export const ToolOutlined: React.FC<IconProps>;
+  export const CheckCircleOutlined: React.FC<IconProps>;
+  export const CloseCircleOutlined: React.FC<IconProps>;
 }
 
 // 补充缺失的React组件类型

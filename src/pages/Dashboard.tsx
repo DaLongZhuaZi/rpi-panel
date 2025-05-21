@@ -11,6 +11,8 @@ import {
   ExperimentOutlined,
   KeyOutlined
 } from '@ant-design/icons';
+import { api, Reservation as ApiReservation } from '../services/api';
+import { mockReservations, mockLocks, MockReservation, MockLock } from '../services/mockData';
 
 interface Reservation {
   id: number;
@@ -31,7 +33,6 @@ interface Lock {
 }
 
 const Dashboard: React.FC = () => {
-  // 创建图标组件变量
   const CheckCircleIcon = () => <CheckCircleOutlined />;
   const ClockCircleIcon = () => <ClockCircleOutlined />;
   const CloseCircleIcon = () => <CloseCircleOutlined />;
@@ -42,48 +43,73 @@ const Dashboard: React.FC = () => {
   const UnlockIcon = () => <UnlockOutlined />;
   const ExperimentIcon = () => <ExperimentOutlined />;
 
-  const [reservations, setReservations] = useState<Reservation[]>([]);
-  const [locks, setLocks] = useState<Lock[]>([]);
+  const [reservations, setReservations] = useState<MockReservation[]>([]);
+  const [locks, setLocks] = useState<MockLock[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [fallback, setFallback] = useState(false); // 调试模式，是否回退到模拟数据
+
+  // API转UI数据格式
+  const mapApiToUiReservation = (apiRes: ApiReservation): Reservation => {
+    let status: Reservation['status'] = 'available';
+    switch (apiRes.status) {
+      case 'active':
+        status = 'in-use';
+        break;
+      case 'upcoming':
+        status = 'booked';
+        break;
+      case 'completed':
+        status = 'available';
+        break;
+      case 'cancelled':
+        status = 'maintenance';
+        break;
+      default:
+        status = 'available';
+    }
+    return {
+      id: apiRes.id,
+      labName: apiRes.labName,
+      status: status as Reservation['status'],
+      startTime: apiRes.startTime ? apiRes.startTime.slice(11, 16) : undefined,
+      endTime: apiRes.endTime ? apiRes.endTime.slice(11, 16) : undefined,
+      user: apiRes.username,
+    };
+  };
+
+  // 获取数据（API优先，失败回退）
+  const fetchData = async () => {
+    setLoading(true);
+    setFallback(false);
+    setError(null);
+    try {
+      // 获取预约数据
+      const apiReservations = await api.getReservations();
+      // 获取实验室数据（可用于门锁分配等）
+      const labs = await api.getLabs();
+      // 这里假设门锁数据暂无API，直接用mock
+      setReservations(apiReservations.map(mapApiToUiReservation));
+      setLocks(mockLocks);
+    } catch (err) {
+      // API失败，回退到模拟数据
+      setReservations(mockReservations);
+      setLocks(mockLocks);
+      setFallback(true);
+      setError('API获取失败，已切换为模拟数据');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const fetchData = async () => {
-      setLoading(true);
-      try {
-        // 模拟API调用
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        
-        const reservationData: Reservation[] = [
-          { id: 1, labName: '物理实验室 A', status: 'available' },
-          { id: 2, labName: '化学实验室 B', status: 'booked', startTime: '14:00', endTime: '16:00', user: '李老师' },
-          { id: 3, labName: '生物实验室 C', status: 'in-use', startTime: '13:00', endTime: '15:30', user: '王老师' },
-          { id: 4, labName: '物理实验室 B', status: 'maintenance' },
-          { id: 5, labName: '计算机实验室', status: 'available' },
-          { id: 6, labName: '电子实验室', status: 'booked', startTime: '16:00', endTime: '18:00', user: '张老师' },
-        ];
-        
-        const locksData: Lock[] = [
-          { id: 1, name: '门锁-A201', status: 'online', isLocked: true, batteryLevel: 85, labName: '物理实验室 A' },
-          { id: 2, name: '门锁-B102', status: 'online', isLocked: true, batteryLevel: 90, labName: '化学实验室 B' },
-          { id: 3, name: '门锁-C203', status: 'online', isLocked: false, batteryLevel: 75, labName: '物理实验室 B' },
-          { id: 4, name: '门锁-D101', status: 'offline', isLocked: true, batteryLevel: 60 },
-          { id: 5, name: '门锁-E205', status: 'online', isLocked: true, batteryLevel: 95 },
-        ];
-
-        setReservations(reservationData);
-        setLocks(locksData);
-        setError(null);
-      } catch (err) {
-        setError('获取预约信息失败');
-        console.error(err);
-      } finally {
-        setLoading(false);
-      }
-    };
-
     fetchData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const handleRefresh = () => {
+    fetchData();
+  };
 
   const getStatusColor = (status: Reservation['status']) => {
     switch (status) {
@@ -138,36 +164,6 @@ const Dashboard: React.FC = () => {
     if (level >= 70) return 'bg-green-500';
     if (level >= 30) return 'bg-yellow-500';
     return 'bg-red-500';
-  };
-
-  const handleRefresh = () => {
-    setLoading(true);
-    setReservations([]);
-    setLocks([]);
-    
-    // 模拟API调用
-    setTimeout(() => {
-      const reservationData: Reservation[] = [
-        { id: 1, labName: '物理实验室 A', status: 'available' },
-        { id: 2, labName: '化学实验室 B', status: 'booked', startTime: '14:00', endTime: '16:00', user: '李老师' },
-        { id: 3, labName: '生物实验室 C', status: 'in-use', startTime: '13:00', endTime: '15:30', user: '王老师' },
-        { id: 4, labName: '物理实验室 B', status: 'maintenance' },
-        { id: 5, labName: '计算机实验室', status: 'available' },
-        { id: 6, labName: '电子实验室', status: 'booked', startTime: '16:00', endTime: '18:00', user: '张老师' },
-      ];
-      
-      const locksData: Lock[] = [
-        { id: 1, name: '门锁-A201', status: 'online', isLocked: true, batteryLevel: 85, labName: '物理实验室 A' },
-        { id: 2, name: '门锁-B102', status: 'online', isLocked: true, batteryLevel: 90, labName: '化学实验室 B' },
-        { id: 3, name: '门锁-C203', status: 'online', isLocked: false, batteryLevel: 75, labName: '物理实验室 B' },
-        { id: 4, name: '门锁-D101', status: 'offline', isLocked: true, batteryLevel: 60 },
-        { id: 5, name: '门锁-E205', status: 'online', isLocked: true, batteryLevel: 95 },
-      ];
-      
-      setReservations(reservationData);
-      setLocks(locksData);
-      setLoading(false);
-    }, 1000);
   };
 
   // 计算门锁统计数据

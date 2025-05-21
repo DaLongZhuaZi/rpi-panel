@@ -2,25 +2,23 @@
 module.exports = {
   content: [
     './src/**/*.{js,jsx,ts,tsx}',
-    './public/index.html',
   ],
   theme: {
     extend: {
       colors: {
         primary: {
-          light: '#4da6ff',
-          DEFAULT: '#0066cc',
-          dark: '#004c99',
+          DEFAULT: '#1890ff',
+          dark: '#096dd9',
+          light: '#69c0ff'
         },
         secondary: {
-          light: '#d1fae5',
-          DEFAULT: '#059669',
-          dark: '#047857',
+          DEFAULT: '#722ed1',
+          dark: '#531dab',
+          light: '#9254de'
         },
         background: {
-          light: '#f9fafb',
-          DEFAULT: '#f3f4f6',
-          dark: '#1f2937',
+          DEFAULT: '#f0f2f5',
+          light: '#f5f5f5'
         },
       },
       spacing: {

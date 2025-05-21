@@ -1,71 +1,72 @@
-# RPI-Panel
+# 树莓派硬件控制面板
 
-树莓派控制面板子系统，用于管理和控制实验室设备访问。
+基于React的树莓派硬件控制面板，用于管理实验室门禁系统、I2C设备和GPIO控制。
 
-## 功能特性
+## 主要功能
 
-- 用户界面管理
-- 访问控制
-- 设备监控
-- 实验室管理
-- 锁控制系统
-- 多种解锁方式支持（密码、指纹、蓝牙）
+- 实验室门禁管理和授权
+- GPIO引脚实时控制与监测
+- I2C设备扫描、连接与数据读取
+- 系统状态监控与展示
 
-## 系统要求
+## 技术栈
 
-- 树莓派 4B 或更高版本（推荐至少2GB RAM）
-- Raspberry Pi OS Lite 64位版本
-- Node.js 18.x 或更高版本
-- npm 9.x 或更高版本
+- React 18
+- TypeScript
+- Tailwind CSS
+- Ant Design Icons
+- React Router DOM
 
-## 目录结构
+## 硬件支持
 
-```
-rpi-panel/
-├── client/             # 前端React应用
-├── server/             # 后端Node.js服务
-├── scripts/            # 部署和维护脚本
-└── docs/              # 文档
-```
+- 支持树莓派GPIO引脚控制
+- 支持I2C设备连接与数据读取
+  - BME280温湿度气压传感器
+  - BH1750光照传感器
+  - 其他I2C设备可自定义添加
 
-## 快速开始
+## 开发环境
 
-请参考 [安装指南](docs/setup.md) 进行系统的初始化和配置。
-
-## 开发指南
-
-1. 克隆仓库
 ```bash
-git clone https://github.com/DaLongZhuaZi/rpi-panel.git
-cd rpi-panel
-```
-
-2. 安装依赖
-```bash
-# 安装前端依赖
-cd client
+# 安装依赖
 npm install
 
-# 安装后端依赖
-cd ../server
-npm install
-```
-
-3. 启动开发服务器
-```bash
-# 启动前端开发服务器
-cd client
+# 启动开发服务器（端口4000）
 npm start
 
-# 启动后端服务器
-cd ../server
-npm run dev
+# 构建生产版本
+npm run build
 ```
 
-## 贡献指南
+## 部署到树莓派
 
-欢迎提交 Pull Request 和 Issue。
+1. 构建项目：`npm run build`
+2. 将构建产物复制到树莓派：`scp -r build/ pi@your-raspberry-pi-ip:/var/www/html/`
+3. 确保树莓派上已安装Nginx或Apache，并配置指向该目录
+4. 启用树莓派的I2C和GPIO接口：
+   ```bash
+   sudo raspi-config
+   # 选择 Interfacing Options > I2C > Yes
+   # 选择 Interfacing Options > GPIO > Yes
+   ```
+5. 安装必要的系统组件：
+   ```bash
+   sudo apt-get update
+   sudo apt-get install -y i2c-tools
+   sudo apt-get install -y wiringpi   # 或者替代GPIO库
+   ```
 
-## 许可证
+## 项目结构
 
-MIT License 
+- `/src/hardware/` - 硬件接口实现（GPIO、I2C等）
+- `/src/services/` - 服务层，提供统一的硬件访问接口
+- `/src/pages/` - 页面组件
+  - `/pages/HardwareTest.tsx` - 硬件测试面板
+- `/src/components/` - 可复用组件
+- `/public/` - 静态资源
+
+## 注意事项
+
+- 访问GPIO和I2C接口需要root权限，请确保运行Web服务器的用户有足够权限
+- 在生产环境中，建议使用Node.js后端代理硬件访问，而不是直接在浏览器中访问硬件
+- 开发模式下会使用模拟数据，无需实际的硬件设备 

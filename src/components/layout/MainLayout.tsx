@@ -1,155 +1,163 @@
-import React, { ReactNode, useState, useEffect } from 'react';
-import { Link, useLocation } from 'react-router-dom';
-import {
+import React, { useState } from 'react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { 
+  HomeOutlined, 
+  SettingOutlined, 
+  TeamOutlined, 
+  LockOutlined,
+  ApiOutlined,
   DashboardOutlined,
-  KeyOutlined,
-  AppstoreOutlined,
-  SettingOutlined,
-  MenuOutlined,
-  CloseOutlined,
-  ExperimentOutlined,
-  LockOutlined
+  LogoutOutlined,
+  MenuFoldOutlined,
+  MenuUnfoldOutlined,
+  BankOutlined,
+  ToolOutlined
 } from '@ant-design/icons';
 
 interface MainLayoutProps {
-  children: ReactNode;
+  children: React.ReactNode;
+}
+
+interface MenuItem {
+  key: string;
+  title: string;
+  icon: React.ReactNode;
+  path: string;
 }
 
 const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
+  const [collapsed, setCollapsed] = useState(false);
   const location = useLocation();
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [currentTime, setCurrentTime] = useState<string>(new Date().toLocaleString('zh-CN'));
-  
-  const DashboardIcon = DashboardOutlined;
-  const KeyIcon = KeyOutlined;
-  const AppstoreIcon = AppstoreOutlined;
-  const SettingIcon = SettingOutlined;
-  const MenuIcon = MenuOutlined;
-  const CloseIcon = CloseOutlined;
-  const ExperimentIcon = ExperimentOutlined;
-  const LockIcon = LockOutlined;
-  
-  // 确保占满整个视口
-  useEffect(() => {
-    const styleElement = document.createElement('style');
-    styleElement.textContent = `
-      body, html, #root, .App {
-        height: 100%;
-        width: 100%;
-        margin: 0;
-        padding: 0;
-        overflow: hidden;
-      }
-    `;
-    document.head.appendChild(styleElement);
-    
-    // 更新时间显示
-    const timeInterval = setInterval(() => {
-      setCurrentTime(new Date().toLocaleString('zh-CN'));
-    }, 1000);
-    
-    return () => {
-      document.head.removeChild(styleElement);
-      clearInterval(timeInterval);
-    };
-  }, []);
-  
-  const menuItems = [
-    { path: '/admin/', label: '预约面板', icon: <DashboardIcon /> },
-    { path: '/admin/labs', label: '实验室管理', icon: <ExperimentIcon /> },
-    { path: '/admin/locks', label: '门锁管理', icon: <LockIcon /> },
-    { path: '/admin/access', label: '门禁控制', icon: <KeyIcon /> },
-    { path: '/admin/devices', label: '设备监控', icon: <AppstoreIcon /> },
-    { path: '/admin/settings', label: '系统设置', icon: <SettingIcon /> },
+  const navigate = useNavigate();
+  const currentPath = location.pathname.split('/').filter(Boolean)[1] || '';
+
+  const menuItems: MenuItem[] = [
+    {
+      key: '',
+      title: '控制台',
+      icon: <DashboardOutlined />,
+      path: '/admin'
+    },
+    {
+      key: 'labs',
+      title: '实验室管理',
+      icon: <BankOutlined />,
+      path: '/admin/labs'
+    },
+    {
+      key: 'locks',
+      title: '门锁管理',
+      icon: <LockOutlined />,
+      path: '/admin/locks'
+    },
+    {
+      key: 'access',
+      title: '权限管理',
+      icon: <TeamOutlined />,
+      path: '/admin/access'
+    },
+    {
+      key: 'devices',
+      title: '设备监控',
+      icon: <ApiOutlined />,
+      path: '/admin/devices'
+    },
+    {
+      key: 'hardware',
+      title: '硬件测试',
+      icon: <ToolOutlined />,
+      path: '/admin/hardware'
+    },
+    {
+      key: 'settings',
+      title: '系统设置',
+      icon: <SettingOutlined />,
+      path: '/admin/settings'
+    }
   ];
 
-  const toggleMenu = () => {
-    setMobileMenuOpen(!mobileMenuOpen);
-  };
-
-  // 关闭菜单的函数
-  const closeMenu = () => {
-    setMobileMenuOpen(false);
+  const handleLogout = () => {
+    // TODO: 处理登出逻辑
+    navigate('/admin-login');
   };
 
   return (
-    <div className="flex flex-col h-full min-h-screen w-full md:flex-row">
-      {/* 移动端菜单按钮 */}
-      <div className="md:hidden bg-white border-b border-gray-200 p-3 flex justify-between items-center shadow-sm">
-        <h1 className="text-xl font-semibold truncate max-w-[70%]">
-          {menuItems.find(item => item.path === location.pathname)?.label || '实验室管理系统'}
-        </h1>
-        <button 
-          className="p-2 rounded-md text-gray-500 hover:text-gray-700 hover:bg-gray-100"
-          onClick={toggleMenu}
-        >
-          {mobileMenuOpen ? <CloseIcon /> : <MenuIcon />}
-        </button>
-      </div>
-
-      {/* 侧边导航 - 大屏幕固定显示，小屏幕条件显示 */}
-      <div className={`
-        bg-gray-800 text-white flex flex-col overflow-auto
-        ${mobileMenuOpen ? 'fixed inset-0 z-50' : 'hidden'} 
-        md:block md:sticky md:top-0 md:h-screen md:w-64 md:min-w-0 md:flex-shrink-0
-      `}>
-        {/* 标题/Logo */}
-        <div className="p-4 text-xl font-bold border-b border-gray-700 flex justify-between items-center">
-          <span>实验室管理系统</span>
-          {/* 移动端关闭按钮 */}
-          <button 
-            className="md:hidden p-2 text-white hover:text-gray-300"
-            onClick={closeMenu}
-          >
-            <CloseIcon />
-          </button>
+    <div className="flex h-screen overflow-hidden">
+      {/* 侧边栏 */}
+      <div 
+        className={`bg-gray-800 text-white transition-all duration-300 flex flex-col ${
+          collapsed ? 'w-20' : 'w-64'
+        }`}
+      >
+        {/* 头部Logo */}
+        <div className="p-4 border-b border-gray-700 flex items-center">
+          <div className={`${collapsed ? 'mx-auto' : 'mr-4'}`}>
+            <LockOutlined className="text-2xl text-primary" />
+          </div>
+          {!collapsed && (
+            <h1 className="text-lg font-bold text-primary-light">实验室门禁系统</h1>
+          )}
         </div>
         
-        {/* 导航菜单 */}
-        <nav className="flex-1 overflow-y-auto">
-          <ul className="py-3">
-            {menuItems.map((item) => (
-              <li key={item.path}>
+        {/* 菜单 */}
+        <div className="flex-1 overflow-y-auto py-4">
+          <ul>
+            {menuItems.map(item => (
+              <li key={item.key} className="mb-1">
                 <Link
                   to={item.path}
-                  className={`flex items-center px-5 py-3 hover:bg-gray-700 ${
-                    location.pathname === item.path ? 'bg-primary-dark text-white' : 'text-gray-300'
+                  className={`flex items-center px-4 py-3 text-sm ${
+                    currentPath === item.key 
+                      ? 'bg-primary text-white' 
+                      : 'text-gray-300 hover:bg-gray-700'
                   }`}
-                  onClick={closeMenu} // 点击菜单项时关闭移动端菜单
                 >
-                  <span className="mr-3 text-lg">{item.icon}</span>
-                  <span className="truncate">{item.label}</span>
+                  <span className={`${collapsed ? 'mx-auto text-lg' : 'mr-4'}`}>
+                    {item.icon}
+                  </span>
+                  {!collapsed && <span>{item.title}</span>}
                 </Link>
               </li>
             ))}
           </ul>
-        </nav>
+        </div>
         
-        {/* 底部状态信息 */}
-        <div className="p-4 text-sm text-gray-400 border-t border-gray-700">
-          <div className="truncate">设备状态: 正常</div>
-          <div className="truncate">连接状态: 在线</div>
+        {/* 底部操作区 */}
+        <div className="p-4 border-t border-gray-700">
+          <button 
+            className="flex items-center text-gray-300 hover:text-white w-full"
+            onClick={() => setCollapsed(!collapsed)}
+          >
+            <span className={`${collapsed ? 'mx-auto' : 'mr-4'}`}>
+              {collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
+            </span>
+            {!collapsed && <span>收起菜单</span>}
+          </button>
+          
+          <button 
+            className="flex items-center text-gray-300 hover:text-white mt-4 w-full"
+            onClick={handleLogout}
+          >
+            <span className={`${collapsed ? 'mx-auto' : 'mr-4'}`}>
+              <LogoutOutlined />
+            </span>
+            {!collapsed && <span>退出登录</span>}
+          </button>
         </div>
       </div>
       
       {/* 主内容区 */}
-      <div className="flex-1 flex flex-col h-full overflow-hidden">
-        {/* 顶部状态栏 - 仅在平板及以上设备显示 */}
-        <header className="hidden md:flex bg-white border-b border-gray-200 p-3 justify-between items-center shadow-sm">
-          <h1 className="text-lg md:text-xl font-semibold truncate">
-            {menuItems.find(item => item.path === location.pathname)?.label || '实验室管理系统'}
-          </h1>
-          <div className="text-xs md:text-sm text-gray-500 flex">
-            <span className="mr-3 hidden lg:inline">{currentTime}</span>
-            <span className="truncate">ID: RPi-Panel-001</span>
-          </div>
+      <div className="flex-1 flex flex-col overflow-hidden">
+        {/* 顶部导航栏 */}
+        <header className="bg-white shadow-sm h-16 flex items-center px-6">
+          <h2 className="text-xl font-semibold text-gray-800">
+            {menuItems.find(item => item.key === currentPath)?.title || '控制台'}
+          </h2>
         </header>
         
-        {/* 内容区域 */}
-        <main className="flex-1 overflow-auto p-3 md:p-4 lg:p-5 bg-gray-100">
-          <div className="h-full">
-            {children}
-          </div>
+        {/* 内容区 */}
+        <main className="flex-1 overflow-y-auto bg-gray-50 p-6">
+          {children}
         </main>
       </div>
     </div>

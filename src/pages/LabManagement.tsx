@@ -8,26 +8,9 @@ import {
   SearchOutlined,
   LockOutlined
 } from '@ant-design/icons';
-
-interface Lab {
-  id: number;
-  name: string;
-  location: string;
-  capacity: number;
-  equipment: string;
-  status: 'active' | 'maintenance' | 'inactive';
-  lockId?: number;
-  lockName?: string;
-}
-
-interface Lock {
-  id: number;
-  name: string;
-  deviceId: string;
-  status: 'online' | 'offline' | 'error';
-  batteryLevel: number;
-  isLocked: boolean;
-}
+import { Lab, Lock } from '../types';
+import { fetchLabsApi, fetchLocksApi } from '../api';
+import { mockLabs, mockLocks } from '../mockData';
 
 const LabManagement: React.FC = () => {
   const [labs, setLabs] = useState<Lab[]>([]);
@@ -57,22 +40,19 @@ const LabManagement: React.FC = () => {
   const fetchLabs = async () => {
     setLoading(true);
     try {
-      // 模拟API调用
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      const data: Lab[] = [
-        { id: 1, name: '物理实验室 A', location: '教学楼A区 201', capacity: 30, equipment: '光学器材、测量仪', status: 'active', lockId: 1, lockName: '门锁-A201' },
-        { id: 2, name: '化学实验室 B', location: '教学楼B区 102', capacity: 25, equipment: '化学试剂、燃烧器、通风柜', status: 'active', lockId: 2, lockName: '门锁-B102' },
-        { id: 3, name: '生物实验室 C', location: '教学楼A区 305', capacity: 35, equipment: '显微镜、培养皿', status: 'maintenance' },
-        { id: 4, name: '物理实验室 B', location: '教学楼C区 203', capacity: 40, equipment: '电子设备、测量工具', status: 'active', lockId: 3, lockName: '门锁-C203' },
-        { id: 5, name: '计算机实验室', location: '教学楼D区 401', capacity: 50, equipment: '计算机40台、投影仪', status: 'active' },
-        { id: 6, name: '电子实验室', location: '教学楼B区 305', capacity: 30, equipment: '电子元器件、焊接设备', status: 'inactive' },
-      ];
-      
+      let data: Lab[] = [];
+      try {
+        data = await fetchLabsApi();
+      } catch (apiErr) {
+        data = mockLabs;
+        setError('实验室API获取失败，已使用模拟数据');
+      }
       setLabs(data);
-      setError(null);
+      if (!data.length) setError('未获取到实验室数据');
+      else setError(null);
     } catch (err) {
       setError('获取实验室信息失败');
+      setLabs(mockLabs);
       console.error(err);
     } finally {
       setLoading(false);
@@ -81,19 +61,15 @@ const LabManagement: React.FC = () => {
 
   const fetchAvailableLocks = async () => {
     try {
-      // 模拟API调用
-      await new Promise(resolve => setTimeout(resolve, 800));
-      
-      const data: Lock[] = [
-        { id: 1, name: '门锁-A201', deviceId: 'LOCK-001', status: 'online', batteryLevel: 85, isLocked: true },
-        { id: 2, name: '门锁-B102', deviceId: 'LOCK-002', status: 'online', batteryLevel: 90, isLocked: true },
-        { id: 3, name: '门锁-C203', deviceId: 'LOCK-003', status: 'online', batteryLevel: 75, isLocked: false },
-        { id: 4, name: '门锁-D101', deviceId: 'LOCK-004', status: 'offline', batteryLevel: 60, isLocked: true },
-        { id: 5, name: '门锁-E205', deviceId: 'LOCK-005', status: 'online', batteryLevel: 95, isLocked: true },
-      ];
-      
+      let data: Lock[] = [];
+      try {
+        data = await fetchLocksApi();
+      } catch (apiErr) {
+        data = mockLocks;
+      }
       setAvailableLocks(data);
     } catch (err) {
+      setAvailableLocks(mockLocks);
       console.error('获取可用门锁失败', err);
     }
   };

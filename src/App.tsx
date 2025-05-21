@@ -13,6 +13,7 @@ import BluetoothUnlock from './pages/unlock/BluetoothUnlock';
 import AdminLogin from './pages/AdminLogin';
 import LabManagement from './pages/LabManagement';
 import LockManagement from './pages/LockManagement';
+import HardwareTest from './pages/HardwareTest';
 
 function App() {
   // 添加全局事件监听和样式
@@ -69,6 +70,7 @@ function App() {
                 <Route path="locks" element={<LockManagement />} />
                 <Route path="access" element={<AccessControl />} />
                 <Route path="devices" element={<DeviceMonitor />} />
+                <Route path="hardware" element={<HardwareTest />} />
                 <Route path="settings" element={<Settings />} />
               </Routes>
             </MainLayout>

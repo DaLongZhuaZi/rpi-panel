@@ -7,98 +7,104 @@ import {
   CloseOutlined,
   LoadingOutlined
 } from '@ant-design/icons';
-
-interface Device {
-  id: string;
-  name: string;
-  type: string;
-  status: 'online' | 'offline' | 'error';
-  lastSeen: string;
-  data?: {
-    [key: string]: any;
-  };
-}
+import { fetchDevices } from '../api/devices';
+import type { Device } from '../types/device';
+import { deviceMqttCommands, MqttCommandOption } from '../mocks/mqttCommands';
+import { sendMqttCommand } from '../api/mqtt';
 
 const DeviceMonitor: React.FC = () => {
   const [devices, setDevices] = useState<Device[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [selectedDevice, setSelectedDevice] = useState<Device | null>(null);
   const [refreshing, setRefreshing] = useState<boolean>(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // 新增：MQTT命令弹窗相关状态
+  const [isCommandModalOpen, setIsCommandModalOpen] = useState(false);
+  const [selectedCommand, setSelectedCommand] = useState<MqttCommandOption | null>(null);
+  const [commandParams, setCommandParams] = useState<Record<string, any>>({});
+  const [commandLoading, setCommandLoading] = useState(false);
+  const [commandResult, setCommandResult] = useState<{success: boolean; message: string} | null>(null);
 
   useEffect(() => {
-    fetchDevices();
+    loadDevices();
   }, []);
 
-  const fetchDevices = async () => {
+  const loadDevices = async () => {
     setLoading(true);
+    setError(null);
     try {
-      // 模拟从API获取设备数据
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      // 模拟数据
-      const mockDevices: Device[] = [
-        {
-          id: 'door-lock-001',
-          name: '主门门锁',
-          type: 'door-lock',
-          status: 'online',
-          lastSeen: '2025-04-23 14:02:35',
-          data: {
-            battery: 85,
-            lockStatus: 'locked',
-            temperature: 24.5,
-            openCount: 6
-          }
-        },
-        {
-          id: 'temp-sensor-001',
-          name: '温湿度传感器',
-          type: 'sensor',
-          status: 'online',
-          lastSeen: '2025-04-23 14:03:10',
-          data: {
-            temperature: 23.2,
-            humidity: 45.8,
-            battery: 92
-          }
-        },
-        {
-          id: 'light-001',
-          name: '主灯控制器',
-          type: 'light',
-          status: 'online',
-          lastSeen: '2025-04-23 14:01:22',
-          data: {
-            status: 'on',
-            brightness: 80,
-            autoMode: true
-          }
-        },
-        {
-          id: 'camera-001',
-          name: '入口摄像头',
-          type: 'camera',
-          status: 'offline',
-          lastSeen: '2025-04-23 11:45:18'
-        }
-      ];
-      
-      setDevices(mockDevices);
-      setLoading(false);
-    } catch (error) {
-      console.error('获取设备数据失败:', error);
+      const data = await fetchDevices();
+      setDevices(data);
+    } catch (e) {
+      setError('获取设备数据失败');
+    } finally {
       setLoading(false);
     }
   };
 
   const handleRefresh = async () => {
     setRefreshing(true);
-    await fetchDevices();
+    await loadDevices();
     setRefreshing(false);
   };
 
   const handleDeviceSelect = (device: Device) => {
     setSelectedDevice(device);
+  };
+
+  // 新增：打开命令弹窗
+  const handleOpenCommandModal = () => {
+    setSelectedCommand(null);
+    setCommandParams({});
+    setCommandResult(null);
+    setIsCommandModalOpen(true);
+  };
+  // 关闭命令弹窗
+  const handleCloseCommandModal = () => {
+    setIsCommandModalOpen(false);
+    setSelectedCommand(null);
+    setCommandParams({});
+    setCommandResult(null);
+  };
+  // 选择命令类型
+  const handleCommandChange = (cmdKey: string) => {
+    if (!selectedDevice) return;
+    const options = deviceMqttCommands[selectedDevice.type] || [];
+    const cmd = options.find(c => c.key === cmdKey) || null;
+    setSelectedCommand(cmd);
+    // 初始化参数
+    if (cmd && cmd.params) {
+      const initialParams: Record<string, any> = {};
+      cmd.params.forEach(p => {
+        initialParams[p.key] = p.default ?? (p.type === 'boolean' ? false : '');
+      });
+      setCommandParams(initialParams);
+    } else {
+      setCommandParams({});
+    }
+  };
+  // 参数输入
+  const handleParamChange = (key: string, value: any) => {
+    setCommandParams(prev => ({ ...prev, [key]: value }));
+  };
+  // 发送命令
+  const handleSendCommand = async () => {
+    if (!selectedDevice || !selectedCommand) return;
+    setCommandLoading(true);
+    setCommandResult(null);
+    try {
+      const res = await sendMqttCommand({
+        deviceId: selectedDevice.id,
+        command: selectedCommand.key,
+        params: commandParams
+      });
+      setCommandResult(res);
+    } catch (e) {
+      setCommandResult({ success: false, message: '命令发送失败' });
+    } finally {
+      setCommandLoading(false);
+    }
   };
 
   const renderDeviceDetails = () => {
@@ -179,7 +185,7 @@ const DeviceMonitor: React.FC = () => {
         <div className="mt-6 flex space-x-3">
           <button 
             className="px-4 py-2 bg-primary text-white rounded-md hover:bg-primary-dark"
-            onClick={() => console.log('发送命令到设备:', id)}
+            onClick={handleOpenCommandModal}
           >
             发送命令
           </button>
@@ -242,6 +248,91 @@ const DeviceMonitor: React.FC = () => {
     }
   };
 
+  // 新增：命令弹窗UI
+  const renderCommandModal = () => {
+    if (!selectedDevice || !isCommandModalOpen) return null;
+    const options = deviceMqttCommands[selectedDevice.type] || [];
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
+        <div className="bg-white rounded-lg shadow-xl w-full max-w-md p-6 relative">
+          <h3 className="text-lg font-semibold mb-4">发送MQTT命令</h3>
+          <button
+            className="absolute top-3 right-3 text-gray-400 hover:text-gray-600"
+            onClick={handleCloseCommandModal}
+          >
+            <CloseOutlined />
+          </button>
+          <div className="mb-4">
+            <label className="block text-gray-700 text-sm font-medium mb-1">命令类型</label>
+            <select
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-primary"
+              value={selectedCommand?.key || ''}
+              onChange={e => handleCommandChange(e.target.value)}
+            >
+              <option value="">请选择命令</option>
+              {options.map(cmd => (
+                <option key={cmd.key} value={cmd.key}>{cmd.label}</option>
+              ))}
+            </select>
+          </div>
+          {selectedCommand && selectedCommand.params && selectedCommand.params.length > 0 && (
+            <div className="mb-4 space-y-3">
+              {selectedCommand.params.map(param => (
+                <div key={param.key}>
+                  <label className="block text-gray-700 text-sm mb-1">{param.label}</label>
+                  {param.type === 'number' ? (
+                    <input
+                      type="number"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                      value={commandParams[param.key] ?? ''}
+                      onChange={e => handleParamChange(param.key, Number(e.target.value))}
+                    />
+                  ) : param.type === 'boolean' ? (
+                    <select
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                      value={commandParams[param.key] ? 'true' : 'false'}
+                      onChange={e => handleParamChange(param.key, e.target.value === 'true')}
+                    >
+                      <option value="true">是</option>
+                      <option value="false">否</option>
+                    </select>
+                  ) : (
+                    <input
+                      type="text"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                      value={commandParams[param.key] ?? ''}
+                      onChange={e => handleParamChange(param.key, e.target.value)}
+                    />
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+          {commandResult && (
+            <div className={`mb-4 p-3 rounded ${commandResult.success ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}>
+              {commandResult.success ? <CheckOutlined className="mr-2" /> : <CloseOutlined className="mr-2" />}
+              {commandResult.message}
+            </div>
+          )}
+          <div className="flex justify-end space-x-3">
+            <button
+              className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
+              onClick={handleCloseCommandModal}
+              disabled={commandLoading}
+            >取消</button>
+            <button
+              className="px-4 py-2 bg-primary text-white rounded-md hover:bg-primary-dark"
+              onClick={handleSendCommand}
+              disabled={!selectedCommand || commandLoading}
+            >
+              {commandLoading ? <LoadingOutlined /> : '发送' }
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
       <div className="lg:col-span-1 bg-white rounded-lg shadow-md overflow-hidden">
@@ -255,11 +346,19 @@ const DeviceMonitor: React.FC = () => {
             {refreshing ? <LoadingOutlined /> : "🔄"}
           </button>
         </div>
-        
         {loading ? (
           <div className="flex flex-col items-center justify-center p-8">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mb-4"></div>
             <p className="text-gray-500">加载设备列表...</p>
+          </div>
+        ) : error ? (
+          <div className="flex flex-col items-center justify-center p-8 text-red-500">
+            <CloseOutlined className="text-4xl mb-2" />
+            <p>{error}</p>
+            <button
+              className="mt-4 px-4 py-2 bg-primary text-white rounded-md hover:bg-primary-dark"
+              onClick={handleRefresh}
+            >重试</button>
           </div>
         ) : devices.length > 0 ? (
           <div className="divide-y divide-gray-200">
@@ -358,6 +457,7 @@ const DeviceMonitor: React.FC = () => {
           </div>
         </div>
       </div>
+      {renderCommandModal()}
     </div>
   );
 };
