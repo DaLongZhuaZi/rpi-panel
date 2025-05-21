@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { 
+import {
   HomeOutlined, 
   SettingOutlined, 
   TeamOutlined, 
@@ -93,7 +93,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
         <div className="p-4 border-b border-gray-700 flex items-center">
           <div className={`${collapsed ? 'mx-auto' : 'mr-4'}`}>
             <LockOutlined className="text-2xl text-primary" />
-          </div>
+      </div>
           {!collapsed && (
             <h1 className="text-lg font-bold text-primary-light">实验室门禁系统</h1>
           )}
@@ -157,7 +157,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
         
         {/* 内容区 */}
         <main className="flex-1 overflow-y-auto bg-gray-50 p-6">
-          {children}
+            {children}
         </main>
       </div>
     </div>

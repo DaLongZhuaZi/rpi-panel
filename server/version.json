@@ -1,0 +1,14 @@
+{
+  "version": "1.0.0",
+  "releaseDate": "2023-12-01T00:00:00Z",
+  "description": "Initial release of the RPI Control Panel",
+  "updateDetails": {
+    "features": [
+      "基础门锁控制功能",
+      "实验室管理功能",
+      "MQTT通信功能"
+    ],
+    "fixes": [],
+    "changes": []
+  }
+} 

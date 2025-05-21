@@ -1,0 +1,191 @@
+<%- include('layout', { title: title, activeTab: activeTab }) %>
+
+<div class="card mb-4">
+  <div class="card-header">配置GPIO引脚</div>
+  <div class="card-body">
+    <form id="gpio-setup-form">
+      <div class="form-group">
+        <label for="gpio-device" class="form-label">选择设备</label>
+        <select id="gpio-device" class="form-control" required>
+          <option value="">选择设备</option>
+          <% devices.filter(d => d.status === 'online').forEach(function(device) { %>
+            <option value="<%= device.id %>"><%= device.name %> (<%= device.id %>)</option>
+          <% }); %>
+        </select>
+      </div>
+      <div class="form-group">
+        <label for="gpio-pin" class="form-label">引脚号</label>
+        <input type="number" id="gpio-pin" class="form-control" required min="0">
+      </div>
+      <div class="form-group">
+        <label for="gpio-mode" class="form-label">模式</label>
+        <select id="gpio-mode" class="form-control">
+          <option value="out">输出</option>
+          <option value="in">输入</option>
+        </select>
+      </div>
+      <div class="form-group" id="initial-state-group">
+        <label for="gpio-initial-state" class="form-label">初始状态</label>
+        <select id="gpio-initial-state" class="form-control">
+          <option value="0">低电平</option>
+          <option value="1">高电平</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label for="gpio-pull" class="form-label">上拉/下拉</label>
+        <select id="gpio-pull" class="form-control">
+          <option value="none">无</option>
+          <option value="up">上拉</option>
+          <option value="down">下拉</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label for="gpio-alias" class="form-label">别名</label>
+        <input type="text" id="gpio-alias" class="form-control">
+      </div>
+      <button type="submit" class="btn btn-success">配置引脚</button>
+    </form>
+  </div>
+</div>
+
+<h2 class="mb-3">已配置的GPIO引脚</h2>
+
+<% if (pins.length === 0) { %>
+  <div class="card">
+    <div class="card-body">
+      <p class="text-center">暂无配置的GPIO引脚</p>
+    </div>
+  </div>
+<% } else { %>
+  <% 
+    // 按设备分组
+    const pinsByDevice = {};
+    pins.forEach(pin => {
+      if (!pinsByDevice[pin.deviceId]) {
+        pinsByDevice[pin.deviceId] = [];
+      }
+      pinsByDevice[pin.deviceId].push(pin);
+    });
+  %>
+  
+  <% Object.keys(pinsByDevice).forEach(deviceId => { %>
+    <div class="card mb-4">
+      <div class="card-header">
+        <% 
+          const device = devices.find(d => d.id === deviceId);
+          const deviceName = device ? device.name : '未知设备';
+        %>
+        <%= deviceName %> (<%= deviceId %>)
+      </div>
+      <div class="card-body">
+        <% pinsByDevice[deviceId].forEach(pin => { %>
+          <div class="gpio-pin">
+            <div class="pin-status <%= pin.value ? 'pin-high' : 'pin-low' %>"></div>
+            <div>
+              <strong><%= pin.alias || `引脚 ${pin.pin}` %></strong> (<%= pin.pin %>)
+              <div>模式: <%= pin.mode === 'out' ? '输出' : '输入' %>, 值: <%= pin.value %></div>
+              <div>上拉/下拉: <%= pin.pullUpDown %></div>
+            </div>
+            <div style="margin-left: auto;">
+              <% if (pin.mode === 'out') { %>
+                <div class="btn-group">
+                  <button class="btn btn-sm btn-success" onclick="updateGpioPin('<%= pin.pin %>', 1)">
+                    高电平
+                  </button>
+                  <button class="btn btn-sm btn-danger" onclick="updateGpioPin('<%= pin.pin %>', 0)">
+                    低电平
+                  </button>
+                </div>
+              <% } %>
+              <button class="btn btn-sm btn-warning ml-2" onclick="releaseGpioPin('<%= pin.pin %>')">
+                释放
+              </button>
+            </div>
+          </div>
+        <% }); %>
+      </div>
+    </div>
+  <% }); %>
+<% } %>
+
+<div class="card mt-4">
+  <div class="card-header">操作</div>
+  <div class="card-body">
+    <button class="btn btn-danger" onclick="confirmReleaseAll()">释放所有引脚</button>
+  </div>
+</div>
+
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    // 根据模式显示/隐藏初始状态选项
+    const gpioMode = document.getElementById('gpio-mode');
+    const initialStateGroup = document.getElementById('initial-state-group');
+    
+    gpioMode.addEventListener('change', function() {
+      if (this.value === 'out') {
+        initialStateGroup.style.display = 'block';
+      } else {
+        initialStateGroup.style.display = 'none';
+      }
+    });
+  });
+  
+  // 更新GPIO引脚值
+  function updateGpioPin(pin, value) {
+    fetch(`/api/gpio/pins/${pin}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ value })
+    })
+      .then(response => response.json())
+      .then(data => {
+        showNotification(`GPIO引脚 ${pin} 已设置为 ${value === 1 ? '高电平' : '低电平'}`, 'success');
+        setTimeout(() => {
+          location.reload();
+        }, 1000);
+      })
+      .catch(error => {
+        showNotification(`GPIO引脚操作失败: ${error}`, 'error');
+      });
+  }
+  
+  // 释放GPIO引脚
+  function releaseGpioPin(pin) {
+    if (confirm(`确定要释放GPIO引脚 ${pin} 吗?`)) {
+      fetch(`/api/gpio/pins/${pin}`, {
+        method: 'DELETE'
+      })
+        .then(response => response.json())
+        .then(data => {
+          showNotification(data.message, 'success');
+          setTimeout(() => {
+            location.reload();
+          }, 1000);
+        })
+        .catch(error => {
+          showNotification(`释放GPIO引脚失败: ${error}`, 'error');
+        });
+    }
+  }
+  
+  // 确认释放所有引脚
+  function confirmReleaseAll() {
+    if (confirm('确定要释放所有GPIO引脚吗?')) {
+      fetch('/api/gpio/pins', {
+        method: 'DELETE'
+      })
+        .then(response => response.json())
+        .then(data => {
+          showNotification(data.message, 'success');
+          setTimeout(() => {
+            location.reload();
+          }, 1000);
+        })
+        .catch(error => {
+          showNotification(`释放所有GPIO引脚失败: ${error}`, 'error');
+        });
+    }
+  }
+</script> 

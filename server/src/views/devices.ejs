@@ -1,0 +1,131 @@
+<%- include('layout', { title: title, activeTab: activeTab }) %>
+
+<div class="card mb-4">
+  <div class="card-header">添加设备</div>
+  <div class="card-body">
+    <form id="add-device-form">
+      <div class="form-group">
+        <label for="device-id" class="form-label">设备ID</label>
+        <input type="text" id="device-id" class="form-control" required>
+      </div>
+      <div class="form-group">
+        <label for="device-name" class="form-label">设备名称</label>
+        <input type="text" id="device-name" class="form-control" required>
+      </div>
+      <div class="form-group">
+        <label for="device-type" class="form-label">设备类型</label>
+        <select id="device-type" class="form-control">
+          <option value="raspberry-pi">树莓派</option>
+          <option value="arduino">Arduino</option>
+          <option value="esp32">ESP32</option>
+          <option value="other">其他</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label for="device-description" class="form-label">设备描述</label>
+        <textarea id="device-description" class="form-control" rows="3"></textarea>
+      </div>
+      <button type="submit" class="btn btn-success">添加设备</button>
+    </form>
+  </div>
+</div>
+
+<h2 class="mb-3">设备列表</h2>
+
+<% if (devices.length === 0) { %>
+  <div class="card">
+    <div class="card-body">
+      <p class="text-center">暂无设备</p>
+    </div>
+  </div>
+<% } else { %>
+  <div class="card">
+    <div class="card-body">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>名称</th>
+            <th>类型</th>
+            <th>状态</th>
+            <th>最后活动时间</th>
+            <th>操作</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% devices.forEach(function(device) { %>
+            <tr>
+              <td><%= device.id %></td>
+              <td><%= device.name %></td>
+              <td><%= device.type %></td>
+              <td>
+                <span class="badge badge-<%= device.status === 'online' ? 'success' : 'danger' %>">
+                  <%= device.status === 'online' ? '在线' : '离线' %>
+                </span>
+              </td>
+              <td><%= new Date(device.lastSeen).toLocaleString() %></td>
+              <td>
+                <a href="/devices/<%= device.id %>" class="btn btn-sm">详情</a>
+                <button class="btn btn-sm btn-danger" onclick="deleteDevice('<%= device.id %>')">删除</button>
+              </td>
+            </tr>
+          <% }); %>
+        </tbody>
+      </table>
+    </div>
+  </div>
+<% } %>
+
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    // 添加设备表单提交
+    const addDeviceForm = document.getElementById('add-device-form');
+    if (addDeviceForm) {
+      addDeviceForm.addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        const deviceId = document.getElementById('device-id').value;
+        const name = document.getElementById('device-name').value;
+        const type = document.getElementById('device-type').value;
+        const description = document.getElementById('device-description').value;
+        
+        fetch('/api/devices', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ deviceId, name, type, description })
+        })
+          .then(response => response.json())
+          .then(data => {
+            showNotification('设备添加成功', 'success');
+            setTimeout(() => {
+              location.reload();
+            }, 1000);
+          })
+          .catch(error => {
+            showNotification(`设备添加失败: ${error}`, 'error');
+          });
+      });
+    }
+  });
+  
+  // 删除设备
+  function deleteDevice(deviceId) {
+    if (confirm(`确定要删除设备 ${deviceId} 吗?`)) {
+      fetch(`/api/devices/${deviceId}`, {
+        method: 'DELETE'
+      })
+        .then(response => response.json())
+        .then(data => {
+          showNotification(data.message, 'success');
+          setTimeout(() => {
+            location.reload();
+          }, 1000);
+        })
+        .catch(error => {
+          showNotification(`删除设备失败: ${error}`, 'error');
+        });
+    }
+  }
+</script> 

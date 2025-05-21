@@ -1,0 +1,403 @@
+<%- include('layout', { title: title, activeTab: activeTab }) %>
+
+<div class="card mb-4">
+  <div class="card-header">扫描I2C设备</div>
+  <div class="card-body">
+    <form id="i2c-scan-form" class="mb-3">
+      <div class="form-group">
+        <label for="i2c-device" class="form-label">选择设备</label>
+        <select id="i2c-device" class="form-control" required>
+          <option value="">选择设备</option>
+          <% devices.filter(d => d.status === 'online').forEach(function(device) { %>
+            <option value="<%= device.id %>"><%= device.name %> (<%= device.id %>)</option>
+          <% }); %>
+        </select>
+      </div>
+      <div class="form-group">
+        <label for="i2c-bus" class="form-label">I2C总线</label>
+        <select id="i2c-bus" class="form-control">
+          <option value="1">总线 1</option>
+          <option value="0">总线 0</option>
+        </select>
+      </div>
+      <button type="button" id="scan-i2c" class="btn btn-primary">扫描设备</button>
+    </form>
+    
+    <div id="scan-results" class="mt-4" style="display: none;">
+      <h4>扫描结果</h4>
+      <div id="scan-results-content"></div>
+    </div>
+  </div>
+</div>
+
+<div class="card mb-4">
+  <div class="card-header">添加I2C设备</div>
+  <div class="card-body">
+    <form id="i2c-setup-form">
+      <div class="form-group">
+        <label for="i2c-setup-device" class="form-label">选择设备</label>
+        <select id="i2c-setup-device" class="form-control" required>
+          <option value="">选择设备</option>
+          <% devices.filter(d => d.status === 'online').forEach(function(device) { %>
+            <option value="<%= device.id %>"><%= device.name %> (<%= device.id %>)</option>
+          <% }); %>
+        </select>
+      </div>
+      <div class="form-group">
+        <label for="i2c-setup-bus" class="form-label">I2C总线</label>
+        <select id="i2c-setup-bus" class="form-control">
+          <option value="1">总线 1</option>
+          <option value="0">总线 0</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label for="i2c-address" class="form-label">设备地址</label>
+        <input type="text" id="i2c-address" class="form-control" placeholder="0x76" required>
+        <small class="form-text text-muted">地址格式：0x后跟两位十六进制数，如0x76</small>
+      </div>
+      <div class="form-group">
+        <label for="i2c-type" class="form-label">设备类型</label>
+        <select id="i2c-type" class="form-control">
+          <option value="BME280">BME280 (温湿度气压传感器)</option>
+          <option value="BH1750">BH1750 (光照传感器)</option>
+          <option value="DS3231">DS3231 (实时时钟)</option>
+          <option value="SSD1306">SSD1306 (OLED显示屏)</option>
+          <option value="PCA9685">PCA9685 (PWM控制器)</option>
+          <option value="ADS1115">ADS1115 (ADC转换器)</option>
+          <option value="INA219">INA219 (电流传感器)</option>
+          <option value="MPU6050">MPU6050 (加速度计/陀螺仪)</option>
+          <option value="Custom">自定义</option>
+        </select>
+      </div>
+      <div class="form-group" id="i2c-name-group" style="display: none;">
+        <label for="i2c-name" class="form-label">设备名称</label>
+        <input type="text" id="i2c-name" class="form-control">
+      </div>
+      <div class="form-group">
+        <label for="i2c-description" class="form-label">描述</label>
+        <textarea id="i2c-description" class="form-control" rows="2"></textarea>
+      </div>
+      <button type="submit" class="btn btn-success">添加设备</button>
+    </form>
+  </div>
+</div>
+
+<h2 class="mb-3">已配置的I2C设备</h2>
+
+<% if (i2cDevices.length === 0) { %>
+  <div class="card">
+    <div class="card-body">
+      <p class="text-center">暂无配置的I2C设备</p>
+    </div>
+  </div>
+<% } else { %>
+  <% 
+    // 按设备分组
+    const devicesByRpi = {};
+    i2cDevices.forEach(device => {
+      if (!devicesByRpi[device.deviceId]) {
+        devicesByRpi[device.deviceId] = [];
+      }
+      devicesByRpi[device.deviceId].push(device);
+    });
+  %>
+  
+  <% Object.keys(devicesByRpi).forEach(deviceId => { %>
+    <div class="card mb-4">
+      <div class="card-header">
+        <% 
+          const device = devices.find(d => d.id === deviceId);
+          const deviceName = device ? device.name : '未知设备';
+        %>
+        <%= deviceName %> (<%= deviceId %>)
+      </div>
+      <div class="card-body">
+        <div class="i2c-devices-list">
+          <% devicesByRpi[deviceId].forEach(i2cDevice => { %>
+            <div class="i2c-device">
+              <div class="d-flex justify-content-between">
+                <div>
+                  <strong><%= i2cDevice.name || '未知设备' %></strong>
+                  <span class="i2c-address">地址: <%= i2cDevice.address %></span>
+                  <span>总线: <%= i2cDevice.busNumber %></span>
+                </div>
+                <div>
+                  <button class="btn btn-sm btn-primary" onclick="readI2CDevice('<%= deviceId %>', '<%= i2cDevice.id %>')">读取数据</button>
+                  <button class="btn btn-sm btn-danger" onclick="removeI2CDevice('<%= i2cDevice.id %>')">删除</button>
+                </div>
+              </div>
+              <% if (i2cDevice.description) { %>
+                <div class="mt-2"><small><%= i2cDevice.description %></small></div>
+              <% } %>
+              <div class="sensor-data mt-2" id="i2c-data-<%= i2cDevice.id %>">
+                <% if (i2cDevice.lastRead) { %>
+                  <div>
+                    <small>最后读取时间: <%= new Date(i2cDevice.lastRead).toLocaleString() %></small>
+                  </div>
+                <% } %>
+              </div>
+            </div>
+          <% }); %>
+        </div>
+      </div>
+    </div>
+  <% }); %>
+<% } %>
+
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    // I2C设备类型变化时，显示/隐藏自定义设备名称
+    const i2cType = document.getElementById('i2c-type');
+    const i2cNameGroup = document.getElementById('i2c-name-group');
+    
+    i2cType.addEventListener('change', function() {
+      if (this.value === 'Custom') {
+        i2cNameGroup.style.display = 'block';
+      } else {
+        i2cNameGroup.style.display = 'none';
+      }
+    });
+    
+    // 扫描I2C设备
+    const scanButton = document.getElementById('scan-i2c');
+    scanButton.addEventListener('click', function() {
+      const deviceId = document.getElementById('i2c-device').value;
+      if (!deviceId) {
+        showNotification('请选择一个设备', 'error');
+        return;
+      }
+      
+      const busNumber = document.getElementById('i2c-bus').value;
+      
+      scanI2CBus(deviceId, busNumber);
+    });
+    
+    // 添加I2C设备
+    const setupForm = document.getElementById('i2c-setup-form');
+    setupForm.addEventListener('submit', function(e) {
+      e.preventDefault();
+      
+      const deviceId = document.getElementById('i2c-setup-device').value;
+      if (!deviceId) {
+        showNotification('请选择一个设备', 'error');
+        return;
+      }
+      
+      const busNumber = document.getElementById('i2c-setup-bus').value;
+      const address = document.getElementById('i2c-address').value;
+      let deviceType = document.getElementById('i2c-type').value;
+      const description = document.getElementById('i2c-description').value;
+      
+      // 如果是自定义类型，使用输入的名称
+      if (deviceType === 'Custom') {
+        const customName = document.getElementById('i2c-name').value;
+        if (!customName) {
+          showNotification('请输入自定义设备名称', 'error');
+          return;
+        }
+        deviceType = customName;
+      }
+      
+      // 验证地址格式
+      if (!/^0x[0-9a-fA-F]{2}$/.test(address)) {
+        showNotification('设备地址格式无效，应为0x后跟两位十六进制数', 'error');
+        return;
+      }
+      
+      addI2CDevice(deviceId, busNumber, address, deviceType, description);
+    });
+  });
+  
+  // 扫描I2C总线
+  function scanI2CBus(deviceId, busNumber) {
+    const scanResults = document.getElementById('scan-results');
+    const scanResultsContent = document.getElementById('scan-results-content');
+    
+    scanResults.style.display = 'block';
+    scanResultsContent.innerHTML = '<p>正在扫描，请稍候...</p>';
+    
+    // 发送命令到设备
+    fetch(`/api/devices/${deviceId}/command`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        command: 'i2c-control',
+        data: {
+          busNumber: parseInt(busNumber, 10),
+          command: 'scan'
+        }
+      })
+    })
+      .then(response => {
+        if (!response.ok) {
+          throw new Error(`HTTP错误 ${response.status}`);
+        }
+        showNotification(`正在扫描总线 ${busNumber} 上的I2C设备...`, 'info');
+        
+        // 等待2秒后从服务器获取扫描结果
+        setTimeout(() => {
+          fetchScanResults(busNumber);
+        }, 2000);
+      })
+      .catch(error => {
+        scanResultsContent.innerHTML = `<p>扫描失败: ${error.message}</p>`;
+        showNotification(`扫描I2C总线失败: ${error.message}`, 'error');
+      });
+  }
+  
+  // 从服务器获取扫描结果
+  function fetchScanResults(busNumber) {
+    const scanResultsContent = document.getElementById('scan-results-content');
+    
+    fetch(`/api/i2c/scan/${busNumber}`)
+      .then(response => response.json())
+      .then(data => {
+        if (data.length === 0) {
+          scanResultsContent.innerHTML = '<p>未找到I2C设备</p>';
+          return;
+        }
+        
+        let html = '<table class="table"><thead><tr><th>地址</th><th>设备类型</th><th>操作</th></tr></thead><tbody>';
+        
+        data.forEach(device => {
+          html += `
+            <tr>
+              <td>${device.address}</td>
+              <td>${device.type} ${device.description ? `(${device.description})` : ''}</td>
+              <td>
+                <button class="btn btn-sm btn-success" onclick="useAddress('${device.address}')">使用</button>
+              </td>
+            </tr>
+          `;
+        });
+        
+        html += '</tbody></table>';
+        scanResultsContent.innerHTML = html;
+      })
+      .catch(error => {
+        scanResultsContent.innerHTML = `<p>获取扫描结果失败: ${error.message}</p>`;
+      });
+  }
+  
+  // 使用扫描到的地址
+  function useAddress(address) {
+    document.getElementById('i2c-address').value = address;
+  }
+  
+  // 添加I2C设备
+  function addI2CDevice(deviceId, busNumber, address, deviceType, description) {
+    fetch('/api/i2c/devices', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        busNumber: parseInt(busNumber, 10),
+        address,
+        name: deviceType,
+        description,
+        deviceId
+      })
+    })
+      .then(response => response.json())
+      .then(data => {
+        showNotification(`I2C设备已添加: ${deviceType} (${address})`, 'success');
+        setTimeout(() => {
+          location.reload();
+        }, 1000);
+      })
+      .catch(error => {
+        showNotification(`添加I2C设备失败: ${error.message}`, 'error');
+      });
+  }
+  
+  // 读取I2C设备数据
+  function readI2CDevice(deviceId, i2cDeviceId) {
+    // 先获取设备信息
+    fetch(`/api/i2c/devices/${i2cDeviceId}`)
+      .then(response => response.json())
+      .then(device => {
+        // 发送命令到设备
+        fetch(`/api/devices/${deviceId}/command`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            command: 'i2c-control',
+            data: {
+              busNumber: device.busNumber,
+              address: device.address,
+              command: 'read',
+              sensorType: device.name
+            }
+          })
+        })
+          .then(response => {
+            if (!response.ok) {
+              throw new Error(`HTTP错误 ${response.status}`);
+            }
+            showNotification(`正在读取I2C设备 ${device.name} (${device.address})...`, 'info');
+            
+            // 等待1秒后从服务器获取读取结果
+            setTimeout(() => {
+              fetchDeviceData(i2cDeviceId);
+            }, 1000);
+          })
+          .catch(error => {
+            showNotification(`读取I2C设备失败: ${error.message}`, 'error');
+          });
+      })
+      .catch(error => {
+        showNotification(`获取I2C设备信息失败: ${error.message}`, 'error');
+      });
+  }
+  
+  // 从服务器获取设备数据
+  function fetchDeviceData(i2cDeviceId) {
+    fetch(`/api/i2c/read/${i2cDeviceId}`)
+      .then(response => response.json())
+      .then(data => {
+        const dataContainer = document.getElementById(`i2c-data-${i2cDeviceId}`);
+        
+        let html = `<div><small>最后读取时间: ${new Date(data.timestamp).toLocaleString()}</small></div>`;
+        
+        if (data.data && typeof data.data === 'object') {
+          html += '<div class="mt-1">';
+          Object.entries(data.data).forEach(([key, value]) => {
+            html += `<span class="mr-3"><strong>${key}:</strong> ${value}</span>`;
+          });
+          html += '</div>';
+        } else {
+          html += `<div class="mt-1"><strong>值:</strong> ${data.data || '无数据'}</div>`;
+        }
+        
+        dataContainer.innerHTML = html;
+        showNotification('I2C设备数据已更新', 'success');
+      })
+      .catch(error => {
+        showNotification(`获取I2C设备数据失败: ${error.message}`, 'error');
+      });
+  }
+  
+  // 删除I2C设备
+  function removeI2CDevice(i2cDeviceId) {
+    if (confirm(`确定要删除此I2C设备吗?`)) {
+      fetch(`/api/i2c/devices/${i2cDeviceId}`, {
+        method: 'DELETE'
+      })
+        .then(response => response.json())
+        .then(data => {
+          showNotification(data.message, 'success');
+          setTimeout(() => {
+            location.reload();
+          }, 1000);
+        })
+        .catch(error => {
+          showNotification(`删除I2C设备失败: ${error.message}`, 'error');
+        });
+    }
+  }
+</script> 

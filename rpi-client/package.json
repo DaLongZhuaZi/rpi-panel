@@ -1,0 +1,32 @@
+{
+  "name": "rpi-panel-client",
+  "version": "1.0.0",
+  "description": "Raspberry Pi Control Panel Client",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "nodemon index.js",
+    "update": "node update.js",
+    "update:check": "node update.js check",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "raspberry-pi",
+    "iot",
+    "hardware-control",
+    "i2c",
+    "gpio"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "adm-zip": "^0.5.10",
+    "axios": "^1.6.2",
+    "dotenv": "^16.0.3",
+    "mqtt": "^5.3.3",
+    "socket.io-client": "^4.6.1"
+  },
+  "devDependencies": {
+    "nodemon": "^2.0.22"
+  }
+} 

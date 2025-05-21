@@ -1,7 +1,16 @@
 import { exec } from 'child_process';
 import { promisify } from 'util';
 
-const execAsync = promisify(exec);
+// 创建一个安全的 promisify 包装
+function safePromisify(fn: any): (...args: any[]) => Promise<any> {
+  if (typeof fn !== 'function') {
+    // 如果不是函数，创建一个模拟函数用于开发环境
+    return (...args: any[]) => Promise.resolve({ stdout: '', stderr: '' });
+  }
+  return promisify(fn);
+}
+
+const execAsync = safePromisify(exec);
 
 export interface GPIOPinConfig {
   pin: number;
@@ -66,6 +75,13 @@ export class GPIOInterface {
     }
 
     try {
+      // 检查平台类型
+      if (process.platform === 'win32') {
+        console.log('Running on Windows, GPIO features will be simulated');
+        this.isRaspberryPi = false;
+        return false;
+      }
+
       // 检查/proc/cpuinfo中是否包含Raspberry Pi特定信息
       const { stdout } = await execAsync('cat /proc/cpuinfo | grep "Raspberry Pi"');
       this.isRaspberryPi = stdout.length > 0;
@@ -112,8 +128,10 @@ export class GPIOInterface {
     try {
       const isAvailable = await this.checkGPIOAvailable();
       if (!isAvailable) {
-        console.error('GPIO is not available');
-        return false;
+        console.log(`GPIO is not available, pin ${config.pin} will be simulated`);
+        // 即使在非树莓派环境中，也保存配置以供模拟
+        this.configuredPins.set(config.pin, config);
+        return true;
       }
       
       // 导出引脚到sysfs
@@ -141,6 +159,8 @@ export class GPIOInterface {
       return true;
     } catch (error) {
       console.error(`Failed to setup GPIO pin ${config.pin}:`, error);
+      // 在出错时也保存配置，以便模拟模式使用
+      this.configuredPins.set(config.pin, config);
       return false;
     }
   }
@@ -154,12 +174,17 @@ export class GPIOInterface {
         return false;
       }
       
-      await execAsync(`echo ${pin} > /sys/class/gpio/unexport`);
-      this.configuredPins.delete(pin);
+      const isRpi = await this.checkIsRaspberryPi();
+      if (isRpi) {
+        await execAsync(`echo ${pin} > /sys/class/gpio/unexport`);
+      }
       
+      this.configuredPins.delete(pin);
       return true;
     } catch (error) {
       console.error(`Failed to release GPIO pin ${pin}:`, error);
+      // 即使出错也删除配置
+      this.configuredPins.delete(pin);
       return false;
     }
   }
@@ -194,12 +219,19 @@ export class GPIOInterface {
         return false;
       }
       
-      await execAsync(`echo ${value} > /sys/class/gpio/gpio${pin}/value`);
+      const isRpi = await this.checkIsRaspberryPi();
+      if (isRpi) {
+        await execAsync(`echo ${value} > /sys/class/gpio/gpio${pin}/value`);
+      } else {
+        // 在非树莓派环境中，使用模拟方法
+        return this.mockWritePin(pin, value);
+      }
       
       return true;
     } catch (error) {
       console.error(`Failed to write to GPIO pin ${pin}:`, error);
-      return false;
+      // 在出错时使用模拟方法
+      return this.mockWritePin(pin, value);
     }
   }
   
@@ -215,11 +247,18 @@ export class GPIOInterface {
         return null;
       }
       
-      const { stdout } = await execAsync(`cat /sys/class/gpio/gpio${pin}/value`);
-      return parseInt(stdout.trim()) as 0 | 1;
+      const isRpi = await this.checkIsRaspberryPi();
+      if (isRpi) {
+        const { stdout } = await execAsync(`cat /sys/class/gpio/gpio${pin}/value`);
+        return parseInt(stdout.trim()) as 0 | 1;
+      } else {
+        // 在非树莓派环境中，使用模拟方法
+        return this.mockReadPin(pin);
+      }
     } catch (error) {
       console.error(`Failed to read from GPIO pin ${pin}:`, error);
-      return null;
+      // 在出错时使用模拟方法
+      return this.mockReadPin(pin);
     }
   }
   

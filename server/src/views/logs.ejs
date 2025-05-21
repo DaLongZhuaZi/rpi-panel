@@ -1,0 +1,224 @@
+<%- include('layout', { title: title, activeTab: activeTab }) %>
+
+<div class="row mb-4">
+  <div class="col-md-6">
+    <div class="card h-100">
+      <div class="card-header d-flex justify-content-between">
+        <div>系统日志</div>
+        <div>
+          <button class="btn btn-sm btn-outline-primary" onclick="refreshLogs('system')">
+            <i class="fas fa-sync-alt"></i> 刷新
+          </button>
+        </div>
+      </div>
+      <div class="card-body">
+        <div class="form-group mb-3">
+          <label for="system-log-level" class="form-label">日志级别</label>
+          <select id="system-log-level" class="form-control" onchange="filterSystemLogs()">
+            <option value="all">全部</option>
+            <option value="info">信息</option>
+            <option value="warn">警告</option>
+            <option value="error">错误</option>
+          </select>
+        </div>
+        <div class="log-container" style="max-height: 400px; overflow-y: auto;">
+          <pre id="system-logs" class="p-3 bg-light" style="font-size: 0.85rem; border-radius: 4px;"></pre>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <div class="col-md-6">
+    <div class="card h-100">
+      <div class="card-header d-flex justify-content-between">
+        <div>设备日志</div>
+        <div>
+          <button class="btn btn-sm btn-outline-primary" onclick="refreshLogs('device')">
+            <i class="fas fa-sync-alt"></i> 刷新
+          </button>
+        </div>
+      </div>
+      <div class="card-body">
+        <div class="form-group mb-3">
+          <label for="device-selector" class="form-label">选择设备</label>
+          <select id="device-selector" class="form-control" onchange="loadDeviceLogs()">
+            <option value="all">所有设备</option>
+            <% devices.forEach(function(device) { %>
+              <option value="<%= device.id %>"><%= device.name %> (<%= device.id %>)</option>
+            <% }); %>
+          </select>
+        </div>
+        <div class="log-container" style="max-height: 400px; overflow-y: auto;">
+          <pre id="device-logs" class="p-3 bg-light" style="font-size: 0.85rem; border-radius: 4px;"></pre>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row">
+  <div class="col-md-6">
+    <div class="card h-100">
+      <div class="card-header d-flex justify-content-between">
+        <div>GPIO日志</div>
+        <div>
+          <button class="btn btn-sm btn-outline-primary" onclick="refreshLogs('gpio')">
+            <i class="fas fa-sync-alt"></i> 刷新
+          </button>
+        </div>
+      </div>
+      <div class="card-body">
+        <div class="form-group mb-3">
+          <label for="gpio-log-level" class="form-label">日志级别</label>
+          <select id="gpio-log-level" class="form-control" onchange="filterGpioLogs()">
+            <option value="all">全部</option>
+            <option value="info">信息</option>
+            <option value="warn">警告</option>
+            <option value="error">错误</option>
+          </select>
+        </div>
+        <div class="log-container" style="max-height: 400px; overflow-y: auto;">
+          <pre id="gpio-logs" class="p-3 bg-light" style="font-size: 0.85rem; border-radius: 4px;"></pre>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <div class="col-md-6">
+    <div class="card h-100">
+      <div class="card-header d-flex justify-content-between">
+        <div>I2C日志</div>
+        <div>
+          <button class="btn btn-sm btn-outline-primary" onclick="refreshLogs('i2c')">
+            <i class="fas fa-sync-alt"></i> 刷新
+          </button>
+        </div>
+      </div>
+      <div class="card-body">
+        <div class="form-group mb-3">
+          <label for="i2c-log-level" class="form-label">日志级别</label>
+          <select id="i2c-log-level" class="form-control" onchange="filterI2cLogs()">
+            <option value="all">全部</option>
+            <option value="info">信息</option>
+            <option value="warn">警告</option>
+            <option value="error">错误</option>
+          </select>
+        </div>
+        <div class="log-container" style="max-height: 400px; overflow-y: auto;">
+          <pre id="i2c-logs" class="p-3 bg-light" style="font-size: 0.85rem; border-radius: 4px;"></pre>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    // 初始化加载所有日志
+    refreshLogs('system');
+    refreshLogs('device');
+    refreshLogs('gpio');
+    refreshLogs('i2c');
+  });
+  
+  // 刷新日志
+  function refreshLogs(type) {
+    const logElement = document.getElementById(`${type}-logs`);
+    if (!logElement) return;
+    
+    logElement.innerHTML = '正在加载日志...';
+    
+    const url = `/api/logs/${type}`;
+    const params = new URLSearchParams();
+    
+    // 添加筛选参数
+    if (type === 'system' || type === 'gpio' || type === 'i2c') {
+      const level = document.getElementById(`${type}-log-level`).value;
+      if (level !== 'all') {
+        params.append('level', level);
+      }
+    }
+    
+    if (type === 'device') {
+      const deviceId = document.getElementById('device-selector').value;
+      if (deviceId !== 'all') {
+        params.append('deviceId', deviceId);
+      }
+    }
+    
+    // 限制日志行数
+    params.append('limit', '100');
+    
+    fetch(`${url}?${params.toString()}`)
+      .then(response => response.json())
+      .then(data => {
+        if (data.logs && data.logs.length > 0) {
+          // 格式化日志显示
+          const formattedLogs = data.logs.map(formatLogEntry).join('\n');
+          logElement.innerHTML = formattedLogs;
+          
+          // 自动滚动到底部
+          logElement.scrollTop = logElement.scrollHeight;
+        } else {
+          logElement.innerHTML = '暂无日志记录';
+        }
+      })
+      .catch(error => {
+        logElement.innerHTML = `加载日志失败: ${error.message}`;
+      });
+  }
+  
+  // 格式化日志条目
+  function formatLogEntry(log) {
+    // 日志级别颜色
+    let levelColor;
+    switch (log.level) {
+      case 'error':
+        levelColor = '#dc3545';
+        break;
+      case 'warn':
+        levelColor = '#ffc107';
+        break;
+      case 'info':
+        levelColor = '#0d6efd';
+        break;
+      default:
+        levelColor = '#6c757d';
+    }
+    
+    // 格式化时间
+    const time = new Date(log.timestamp).toLocaleString();
+    
+    // 返回格式化的日志行
+    return `<span style="color: #6c757d;">[${time}]</span> <span style="color: ${levelColor}; font-weight: bold;">[${log.level.toUpperCase()}]</span> ${log.message}`;
+  }
+  
+  // 筛选系统日志
+  function filterSystemLogs() {
+    refreshLogs('system');
+  }
+  
+  // 加载设备日志
+  function loadDeviceLogs() {
+    refreshLogs('device');
+  }
+  
+  // 筛选GPIO日志
+  function filterGpioLogs() {
+    refreshLogs('gpio');
+  }
+  
+  // 筛选I2C日志
+  function filterI2cLogs() {
+    refreshLogs('i2c');
+  }
+</script>
+
+<style>
+  .log-container pre {
+    margin: 0;
+    font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+  }
+</style> 

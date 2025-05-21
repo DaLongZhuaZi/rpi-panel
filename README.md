@@ -1,72 +1,100 @@
-# 树莓派硬件控制面板
+# 树莓派控制面板
 
-基于React的树莓派硬件控制面板，用于管理实验室门禁系统、I2C设备和GPIO控制。
+一个用于管理和控制树莓派硬件的Web应用程序，包含GPIO控制、I2C通信以及自动更新系统。
 
-## 主要功能
+## 功能特点
 
-- 实验室门禁管理和授权
-- GPIO引脚实时控制与监测
-- I2C设备扫描、连接与数据读取
-- 系统状态监控与展示
+- **硬件控制**：
+  - GPIO引脚管理（输入/输出）
+  - I2C设备通信
+  - 传感器数据读取和显示
+  
+- **实验室管理**：
+  - 门禁控制系统
+  - 设备状态监控
+  - 实验室环境数据采集
+  
+- **通信功能**：
+  - MQTT协议支持
+  - 与服务器端实时数据交互
+  
+- **跨平台支持**：
+  - 树莓派原生硬件支持
+  - Windows/Mac环境下的模拟模式
+  - 自动平台检测和优雅降级
 
-## 技术栈
+- **自动更新系统**：
+  - 远程版本检查
+  - 自动下载和安装更新
+  - 版本回滚机制
+  - 系统服务集成
 
-- React 18
-- TypeScript
-- Tailwind CSS
-- Ant Design Icons
-- React Router DOM
+## 快速开始
 
-## 硬件支持
-
-- 支持树莓派GPIO引脚控制
-- 支持I2C设备连接与数据读取
-  - BME280温湿度气压传感器
-  - BH1750光照传感器
-  - 其他I2C设备可自定义添加
-
-## 开发环境
+### 安装依赖
 
 ```bash
-# 安装依赖
 npm install
-
-# 启动开发服务器（端口4000）
-npm start
-
-# 构建生产版本
-npm run build
 ```
 
-## 部署到树莓派
+### 启动应用
 
-1. 构建项目：`npm run build`
-2. 将构建产物复制到树莓派：`scp -r build/ pi@your-raspberry-pi-ip:/var/www/html/`
-3. 确保树莓派上已安装Nginx或Apache，并配置指向该目录
-4. 启用树莓派的I2C和GPIO接口：
+```bash
+npm start
+```
+
+### 检查更新
+
+```bash
+npm run update:check
+```
+
+### 安装更新
+
+```bash
+npm run update:install
+```
+
+## 开发环境配置
+
+### Windows环境
+
+在Windows环境下，硬件相关功能将自动使用模拟模式运行。无需额外配置，应用会自动检测平台并相应调整行为。
+
+### 树莓派环境
+
+在树莓派上部署时，确保以下条件：
+
+1. 启用I2C和GPIO接口：
    ```bash
    sudo raspi-config
-   # 选择 Interfacing Options > I2C > Yes
-   # 选择 Interfacing Options > GPIO > Yes
    ```
-5. 安装必要的系统组件：
+   进入"Interface Options"并启用I2C和GPIO。
+
+2. 安装必要的系统依赖：
    ```bash
    sudo apt-get update
-   sudo apt-get install -y i2c-tools
-   sudo apt-get install -y wiringpi   # 或者替代GPIO库
+   sudo apt-get install i2c-tools wiringpi
    ```
 
-## 项目结构
+## 更新服务设置
 
-- `/src/hardware/` - 硬件接口实现（GPIO、I2C等）
-- `/src/services/` - 服务层，提供统一的硬件访问接口
-- `/src/pages/` - 页面组件
-  - `/pages/HardwareTest.tsx` - 硬件测试面板
-- `/src/components/` - 可复用组件
-- `/public/` - 静态资源
+在树莓派上设置自动更新服务：
 
-## 注意事项
+```bash
+cd rpi-client
+chmod +x setup-update-service.sh
+./setup-update-service.sh
+```
 
-- 访问GPIO和I2C接口需要root权限，请确保运行Web服务器的用户有足够权限
-- 在生产环境中，建议使用Node.js后端代理硬件访问，而不是直接在浏览器中访问硬件
-- 开发模式下会使用模拟数据，无需实际的硬件设备 
+## 错误排查
+
+如遇到任何问题，请查阅`ERROR-FIX-GUIDE.md`文件获取常见问题的解决方案。
+
+## 版本历史
+
+查看[更新日志](CHANGELOG.md)了解详细的版本更新信息。
+
+## 许可证
+
+ISC 

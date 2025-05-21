@@ -280,10 +280,17 @@ export function subscribeToAllDevices(callback: (deviceId: string, status: any) 
 
 // 实用函数: 发送开门命令
 export function sendUnlockCommand(deviceId: string): Promise<void> {
-  return new Promise((resolve, reject) => {
+  return new Promise(async (resolve, reject) => {
     try {
       if (!mqttClient.isConnected()) {
-        throw new Error('MQTT客户端未连接');
+        console.log('MQTT客户端未连接，尝试连接...');
+        try {
+          await mqttClient.connect();
+          console.log('MQTT客户端连接成功');
+        } catch (connectError) {
+          console.error('MQTT客户端连接失败:', connectError);
+          throw new Error('MQTT客户端未连接');
+        }
       }
       
       mqttClient.publish(`cmd/${deviceId}`, {

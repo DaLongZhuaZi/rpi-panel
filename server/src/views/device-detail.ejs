@@ -1,0 +1,451 @@
+<%- include('layout', { title: title, activeTab: activeTab }) %>
+
+<div id="device-detail" data-device-id="<%= device.id %>">
+  <div class="device-header mb-4">
+    <div class="card">
+      <div class="card-header device-card-header">
+        <h2 class="mb-0"><%= device.name %></h2>
+        <span class="device-status badge badge-<%= device.status === 'online' ? 'success' : 'danger' %>">
+          <%= device.status === 'online' ? '在线' : '离线' %>
+        </span>
+      </div>
+      <div class="card-body">
+        <div class="row">
+          <div class="col">
+            <p><strong>设备ID:</strong> <%= device.id %></p>
+            <p><strong>类型:</strong> <%= device.type %></p>
+            <p><strong>最后活动时间:</strong> <%= new Date(device.lastSeen).toLocaleString() %></p>
+            <% if (device.description) { %>
+              <p><strong>描述:</strong> <%= device.description %></p>
+            <% } %>
+          </div>
+          <div class="col text-right">
+            <button id="refresh-device" class="btn btn-primary">刷新</button>
+            <% if (device.status === 'online') { %>
+              <button id="restart-device" class="btn btn-warning">重启设备</button>
+            <% } %>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="tabs mb-4">
+    <ul class="nav nav-tabs" id="device-tabs">
+      <li class="nav-item">
+        <a class="nav-link active" href="#info" data-toggle="tab">硬件信息</a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link" href="#gpio" data-toggle="tab">GPIO</a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link" href="#i2c" data-toggle="tab">I2C设备</a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link" href="#sensors" data-toggle="tab">传感器数据</a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link" href="#history" data-toggle="tab">历史记录</a>
+      </li>
+    </ul>
+  </div>
+
+  <div class="tab-content" id="device-tab-content">
+    <!-- 硬件信息标签 -->
+    <div class="tab-pane active" id="info">
+      <div class="card">
+        <div class="card-header">硬件信息</div>
+        <div class="card-body" id="hardware-info-<%= device.id %>">
+          <% if (device.hardware) { %>
+            <p><strong>型号:</strong> <%= device.hardware.model || '未知' %></p>
+            <p><strong>CPU温度:</strong> <%= device.hardware.cpuTemp ? device.hardware.cpuTemp + '°C' : '未知' %></p>
+            <p><strong>内存使用:</strong> <%= device.hardware.memoryUsage || '未知' %></p>
+            <p><strong>运行时间:</strong> <%= device.hardware.uptime ? device.hardware.uptime + '小时' : '未知' %></p>
+            <% if (device.hardware.cpuModel) { %>
+              <p><strong>CPU型号:</strong> <%= device.hardware.cpuModel %></p>
+            <% } %>
+            <% if (device.hardware.cpuCores) { %>
+              <p><strong>CPU核心数:</strong> <%= device.hardware.cpuCores %></p>
+            <% } %>
+            <% if (device.hardware.platform) { %>
+              <p><strong>平台:</strong> <%= device.hardware.platform %></p>
+            <% } %>
+            <% if (device.hardware.hostname) { %>
+              <p><strong>主机名:</strong> <%= device.hardware.hostname %></p>
+            <% } %>
+          <% } else { %>
+            <p>等待硬件信息...</p>
+          <% } %>
+        </div>
+      </div>
+    </div>
+
+    <!-- GPIO标签 -->
+    <div class="tab-pane" id="gpio">
+      <div class="card">
+        <div class="card-header">GPIO引脚</div>
+        <div class="card-body">
+          <div id="gpio-pins-<%= device.id %>">
+            <% if (device.gpioPins && device.gpioPins.length > 0) { %>
+              <% device.gpioPins.forEach(function(pin) { %>
+                <div class="gpio-pin">
+                  <div class="pin-status <%= pin.value ? 'pin-high' : 'pin-low' %>"></div>
+                  <div>
+                    <strong><%= pin.alias || `引脚 ${pin.pin}` %></strong> (<%= pin.pin %>)
+                    <div>模式: <%= pin.mode === 'out' ? '输出' : '输入' %>, 值: <%= pin.value %></div>
+                  </div>
+                  <div style="margin-left: auto;">
+                    <% if (pin.mode === 'out') { %>
+                      <button class="btn btn-sm <%= pin.value ? 'btn-danger' : 'btn-success' %>" 
+                              onclick="toggleGpioPin('<%= device.id %>', <%= pin.pin %>, <%= pin.value ? 0 : 1 %>)">
+                        <%= pin.value ? '设为低电平' : '设为高电平' %>
+                      </button>
+                    <% } %>
+                  </div>
+                </div>
+              <% }); %>
+            <% } else { %>
+              <p>没有配置的GPIO引脚</p>
+            <% } %>
+          </div>
+          
+          <div class="mt-4">
+            <h4>添加GPIO引脚</h4>
+            <form id="add-gpio-form" class="mt-3">
+              <input type="hidden" id="gpio-device-id" value="<%= device.id %>">
+              <div class="form-group">
+                <label for="gpio-pin" class="form-label">引脚号</label>
+                <input type="number" id="gpio-pin" class="form-control" required min="0">
+              </div>
+              <div class="form-group">
+                <label for="gpio-mode" class="form-label">模式</label>
+                <select id="gpio-mode" class="form-control">
+                  <option value="out">输出</option>
+                  <option value="in">输入</option>
+                </select>
+              </div>
+              <div class="form-group" id="initial-state-group">
+                <label for="gpio-initial-state" class="form-label">初始状态</label>
+                <select id="gpio-initial-state" class="form-control">
+                  <option value="0">低电平</option>
+                  <option value="1">高电平</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label for="gpio-pull" class="form-label">上拉/下拉</label>
+                <select id="gpio-pull" class="form-control">
+                  <option value="none">无</option>
+                  <option value="up">上拉</option>
+                  <option value="down">下拉</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label for="gpio-alias" class="form-label">别名</label>
+                <input type="text" id="gpio-alias" class="form-control">
+              </div>
+              <button type="submit" class="btn btn-success">配置引脚</button>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- I2C设备标签 -->
+    <div class="tab-pane" id="i2c">
+      <div class="card">
+        <div class="card-header">I2C设备</div>
+        <div class="card-body">
+          <div id="i2c-devices-<%= device.id %>">
+            <% if (device.i2cDevices && device.i2cDevices.length > 0) { %>
+              <% device.i2cDevices.forEach(function(i2cDevice) { %>
+                <div class="i2c-device">
+                  <div>
+                    <strong><%= i2cDevice.name || '未知设备' %></strong>
+                    <span class="i2c-address">地址: <%= i2cDevice.address %></span>
+                    <span>总线: <%= i2cDevice.busNumber %></span>
+                  </div>
+                  <div class="mt-2">
+                    <button class="btn btn-sm" onclick="readI2cDevice('<%= device.id %>', <%= i2cDevice.busNumber %>, '<%= i2cDevice.address %>')">
+                      读取数据
+                    </button>
+                  </div>
+                </div>
+              <% }); %>
+            <% } else { %>
+              <p>没有配置的I2C设备</p>
+            <% } %>
+          </div>
+          
+          <div class="mt-4">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+              <h4>扫描I2C设备</h4>
+              <div>
+                <label for="i2c-scan-bus">总线</label>
+                <select id="i2c-scan-bus" class="form-control form-control-sm d-inline-block" style="width: auto;">
+                  <option value="1">1</option>
+                  <option value="0">0</option>
+                </select>
+                <button class="btn btn-sm btn-primary" onclick="scanI2cBus('<%= device.id %>', document.getElementById('i2c-scan-bus').value)">
+                  扫描
+                </button>
+              </div>
+            </div>
+            <div id="i2c-scan-results" class="mb-4"></div>
+            
+            <h4>添加I2C设备</h4>
+            <form id="add-i2c-form" class="mt-3">
+              <input type="hidden" id="i2c-device-id" value="<%= device.id %>">
+              <div class="form-group">
+                <label for="i2c-bus" class="form-label">总线号</label>
+                <select id="i2c-bus" class="form-control">
+                  <option value="1">1</option>
+                  <option value="0">0</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label for="i2c-address" class="form-label">设备地址</label>
+                <input type="text" id="i2c-address" class="form-control" placeholder="0x76" required>
+              </div>
+              <div class="form-group">
+                <label for="i2c-type" class="form-label">设备类型</label>
+                <select id="i2c-type" class="form-control">
+                  <option value="BME280">BME280 (温湿度气压传感器)</option>
+                  <option value="BH1750">BH1750 (光照传感器)</option>
+                  <option value="DS3231">DS3231 (实时时钟)</option>
+                  <option value="SSD1306">SSD1306 (OLED显示屏)</option>
+                  <option value="Custom">自定义</option>
+                </select>
+              </div>
+              <button type="submit" class="btn btn-success">添加设备</button>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 传感器数据标签 -->
+    <div class="tab-pane" id="sensors">
+      <div class="card">
+        <div class="card-header">传感器数据</div>
+        <div class="card-body">
+          <div id="sensor-data-container-<%= device.id %>">
+            <% if (device.sensors) { %>
+              <% Object.keys(device.sensors).forEach(function(sensorType) { %>
+                <div class="card mb-3">
+                  <div class="card-header"><%= sensorType %></div>
+                  <div class="card-body" id="sensor-detail-<%= device.id %>-<%= sensorType %>">
+                    <% 
+                      const sensorData = device.sensors[sensorType].lastReading;
+                      const lastReadTime = device.sensors[sensorType].lastReadTime;
+                    %>
+                    <p><strong>最后更新时间:</strong> <%= new Date(lastReadTime).toLocaleString() %></p>
+                    <% if (typeof sensorData === 'object') { %>
+                      <% Object.keys(sensorData).forEach(function(key) { %>
+                        <p><strong><%= key %>:</strong> <%= sensorData[key] %></p>
+                      <% }); %>
+                    <% } else { %>
+                      <p><strong>值:</strong> <%= sensorData %></p>
+                    <% } %>
+                  </div>
+                </div>
+              <% }); %>
+            <% } else { %>
+              <p>暂无传感器数据</p>
+            <% } %>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 历史记录标签 -->
+    <div class="tab-pane" id="history">
+      <div class="card">
+        <div class="card-header">设备历史记录</div>
+        <div class="card-body">
+          <div class="d-flex justify-content-between align-items-center mb-3">
+            <h4>状态历史</h4>
+            <div>
+              <button class="btn btn-sm" onclick="loadDeviceHistory('<%= device.id %>')">刷新</button>
+            </div>
+          </div>
+          <div id="history-container">
+            <p>加载中...</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    // 简单的标签切换功能
+    const tabLinks = document.querySelectorAll('#device-tabs .nav-link');
+    const tabContents = document.querySelectorAll('.tab-pane');
+    
+    tabLinks.forEach(link => {
+      link.addEventListener('click', function(e) {
+        e.preventDefault();
+        
+        // 移除所有活动状态
+        tabLinks.forEach(l => l.classList.remove('active'));
+        tabContents.forEach(c => c.classList.remove('active'));
+        
+        // 设置点击的标签为活动状态
+        this.classList.add('active');
+        const target = this.getAttribute('href').substring(1);
+        document.getElementById(target).classList.add('active');
+      });
+    });
+    
+    // 配置GPIO表单事件
+    const addGpioForm = document.getElementById('add-gpio-form');
+    if (addGpioForm) {
+      addGpioForm.addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        const deviceId = document.getElementById('gpio-device-id').value;
+        const pin = document.getElementById('gpio-pin').value;
+        const mode = document.getElementById('gpio-mode').value;
+        const initialState = document.getElementById('gpio-initial-state').value;
+        const pullUpDown = document.getElementById('gpio-pull').value;
+        const alias = document.getElementById('gpio-alias').value;
+        
+        setupGpioPin(deviceId, pin, mode, initialState, pullUpDown, alias);
+      });
+      
+      // 根据模式显示/隐藏初始状态选项
+      const gpioMode = document.getElementById('gpio-mode');
+      const initialStateGroup = document.getElementById('initial-state-group');
+      
+      gpioMode.addEventListener('change', function() {
+        if (this.value === 'out') {
+          initialStateGroup.style.display = 'block';
+        } else {
+          initialStateGroup.style.display = 'none';
+        }
+      });
+    }
+    
+    // 配置I2C表单事件
+    const addI2cForm = document.getElementById('add-i2c-form');
+    if (addI2cForm) {
+      addI2cForm.addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        const deviceId = document.getElementById('i2c-device-id').value;
+        const busNumber = document.getElementById('i2c-bus').value;
+        const address = document.getElementById('i2c-address').value;
+        const deviceType = document.getElementById('i2c-type').value;
+        
+        setupI2cDevice(deviceId, busNumber, address, deviceType);
+      });
+    }
+    
+    // 加载设备历史记录
+    loadDeviceHistory('<%= device.id %>');
+  });
+  
+  // 加载设备历史记录
+  function loadDeviceHistory(deviceId) {
+    const historyContainer = document.getElementById('history-container');
+    historyContainer.innerHTML = '<p>加载中...</p>';
+    
+    fetch(`/api/devices/${deviceId}/history`)
+      .then(response => response.json())
+      .then(data => {
+        if (data.length === 0) {
+          historyContainer.innerHTML = '<p>暂无历史记录</p>';
+          return;
+        }
+        
+        const table = document.createElement('table');
+        table.className = 'table';
+        
+        // 表头
+        const thead = document.createElement('thead');
+        thead.innerHTML = `
+          <tr>
+            <th>时间</th>
+            <th>状态</th>
+            <th>详情</th>
+          </tr>
+        `;
+        table.appendChild(thead);
+        
+        // 表体
+        const tbody = document.createElement('tbody');
+        data.forEach(item => {
+          const row = document.createElement('tr');
+          row.innerHTML = `
+            <td>${new Date(item.timestamp).toLocaleString()}</td>
+            <td>
+              <span class="badge badge-${item.status === 'online' ? 'success' : 'danger'}">
+                ${item.status === 'online' ? '在线' : '离线'}
+              </span>
+            </td>
+            <td>
+              <button class="btn btn-sm" onclick="showHistoryDetails('${JSON.stringify(item).replace(/"/g, '&quot;')}')">
+                详情
+              </button>
+            </td>
+          `;
+          tbody.appendChild(row);
+        });
+        table.appendChild(tbody);
+        
+        historyContainer.innerHTML = '';
+        historyContainer.appendChild(table);
+      })
+      .catch(error => {
+        historyContainer.innerHTML = `<p>加载历史记录失败: ${error}</p>`;
+      });
+  }
+  
+  // 显示历史记录详情
+  function showHistoryDetails(itemStr) {
+    const item = JSON.parse(itemStr);
+    
+    let detailsHtml = `
+      <div>
+        <p><strong>时间:</strong> ${new Date(item.timestamp).toLocaleString()}</p>
+        <p><strong>状态:</strong> ${item.status}</p>
+    `;
+    
+    if (item.hardware) {
+      detailsHtml += `
+        <h5>硬件信息</h5>
+        <p><strong>CPU温度:</strong> ${item.hardware.cpuTemp ? item.hardware.cpuTemp + '°C' : '未知'}</p>
+        <p><strong>内存使用:</strong> ${item.hardware.memoryUsage || '未知'}</p>
+      `;
+    }
+    
+    detailsHtml += '</div>';
+    
+    // 使用弹窗或其他方式显示详情
+    const detailsContainer = document.createElement('div');
+    detailsContainer.style.position = 'fixed';
+    detailsContainer.style.top = '50%';
+    detailsContainer.style.left = '50%';
+    detailsContainer.style.transform = 'translate(-50%, -50%)';
+    detailsContainer.style.zIndex = '1000';
+    detailsContainer.style.minWidth = '300px';
+    detailsContainer.style.maxWidth = '600px';
+    
+    const detailsCard = document.createElement('div');
+    detailsCard.className = 'card';
+    
+    detailsCard.innerHTML = `
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <span>历史记录详情</span>
+        <button style="background: none; border: none; font-size: 18px;" onclick="this.parentElement.parentElement.parentElement.remove()">&times;</button>
+      </div>
+      <div class="card-body">
+        ${detailsHtml}
+      </div>
+    `;
+    
+    detailsContainer.appendChild(detailsCard);
+    document.body.appendChild(detailsContainer);
+  }
+</script> 

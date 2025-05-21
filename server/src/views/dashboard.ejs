@@ -1,0 +1,87 @@
+<%- include('layout', { title: title, activeTab: activeTab }) %>
+
+<div class="card mb-4">
+  <div class="card-header">系统状态</div>
+  <div class="card-body">
+    <p><strong>在线设备数量:</strong> <span id="online-devices-count"><%= devices.length %></span></p>
+    <p><strong>服务器时间:</strong> <%= new Date().toLocaleString() %></p>
+  </div>
+</div>
+
+<h2 class="mb-3">在线设备</h2>
+
+<% if (devices.length === 0) { %>
+  <div class="card">
+    <div class="card-body">
+      <p class="text-center">目前没有在线设备</p>
+      <p class="text-center mb-0">请确保您的树莓派客户端已经启动并连接到服务器</p>
+    </div>
+  </div>
+<% } else { %>
+  <div class="device-grid" id="devices-list">
+    <% devices.forEach(function(device) { %>
+      <div class="card device-card" id="device-<%= device.id %>">
+        <div class="card-header device-card-header">
+          <span><%= device.name %></span>
+          <span class="device-status badge badge-<%= device.status === 'online' ? 'success' : 'danger' %>">
+            <%= device.status === 'online' ? '在线' : '离线' %>
+          </span>
+        </div>
+        <div class="card-body">
+          <p><strong>ID:</strong> <%= device.id %></p>
+          <p><strong>类型:</strong> <%= device.type %></p>
+          <div class="sensor-data" id="sensor-data-<%= device.id %>">
+            <% if (device.sensors) { %>
+              <% Object.keys(device.sensors).forEach(function(sensorType) { %>
+                <div class="sensor-value" id="sensor-<%= device.id %>-<%= sensorType %>">
+                  <div><%= sensorType %></div>
+                  <div class="sensor-label">
+                    <% 
+                      const sensorData = device.sensors[sensorType].lastReading;
+                      let formattedData = '';
+                      
+                      if (typeof sensorData === 'object') {
+                        if (sensorData.temperature !== undefined) {
+                          formattedData += `温度: ${sensorData.temperature.toFixed(1)}°C `;
+                        }
+                        if (sensorData.humidity !== undefined) {
+                          formattedData += `湿度: ${sensorData.humidity.toFixed(1)}% `;
+                        }
+                        if (sensorData.pressure !== undefined) {
+                          formattedData += `气压: ${sensorData.pressure.toFixed(1)}hPa `;
+                        }
+                        if (sensorData.light !== undefined) {
+                          formattedData += `光照: ${sensorData.light.toFixed(1)}lux `;
+                        }
+                        if (Object.keys(sensorData).length === 0) {
+                          formattedData = JSON.stringify(sensorData);
+                        }
+                      } else {
+                        formattedData = String(sensorData);
+                      }
+                    %>
+                    <%= formattedData %>
+                  </div>
+                </div>
+              <% }); %>
+            <% } else { %>
+              <p>等待数据...</p>
+            <% } %>
+          </div>
+          <div class="mt-3">
+            <a href="/devices/<%= device.id %>" class="btn btn-sm">查看详情</a>
+          </div>
+        </div>
+      </div>
+    <% }); %>
+  </div>
+<% } %>
+
+<div class="card mt-4">
+  <div class="card-header">快速操作</div>
+  <div class="card-body">
+    <button class="btn btn-success" onclick="location.href='/devices'">管理设备</button>
+    <button class="btn btn-primary" onclick="location.href='/gpio'">GPIO控制</button>
+    <button class="btn btn-primary" onclick="location.href='/i2c'">I2C设备</button>
+  </div>
+</div> 

@@ -14,6 +14,7 @@ import AdminLogin from './pages/AdminLogin';
 import LabManagement from './pages/LabManagement';
 import LockManagement from './pages/LockManagement';
 import HardwareTest from './pages/HardwareTest';
+import { initializeServices } from './services/init-service';
 
 function App() {
   // 添加全局事件监听和样式
@@ -48,8 +49,21 @@ function App() {
     };
   }, []);
   
+  // 初始化服务
+  useEffect(() => {
+    const init = async () => {
+      try {
+        await initializeServices();
+      } catch (error) {
+        console.error('初始化服务失败:', error);
+      }
+    };
+    
+    init();
+  }, []);
+  
   return (
-    <Router>
+    <Router basename="/">
       <div className="App container-fluid">
         <Routes>
           {/* 用户界面路由 */}

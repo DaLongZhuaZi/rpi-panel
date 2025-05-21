@@ -5,6 +5,7 @@
 
 import { EventEmitter } from 'events';
 import mqttClient, { sendUnlockCommand } from './mqtt-client';
+import mqttService from '../services/mqtt-service';
 
 // 门锁状态
 export enum DoorStatus {
@@ -48,6 +49,20 @@ interface PasswordSettings {
   lockoutTime: number; // 毫秒
 }
 
+// 指纹设置
+interface FingerprintSettings {
+  enabled: boolean;
+  enrolledFingerprints: number;
+  maxFingerprints: number;
+}
+
+// 解锁结果
+export interface UnlockResult {
+  success: boolean;
+  message: string;
+  error?: string;
+}
+
 // 门锁控制器
 export class DoorController extends EventEmitter {
   private deviceId: string;
@@ -81,28 +96,34 @@ export class DoorController extends EventEmitter {
   // 设置MQTT监听
   private setupMqttListeners(): void {
     // 确保MQTT客户端已连接
-    if (!mqttClient.isConnected()) {
-      mqttClient.connect().catch(err => {
-        console.error('MQTT连接失败:', err);
-      });
+    if (!mqttService.isConnected()) {
+      // 等待MQTT服务初始化完成
+      console.log('等待MQTT服务初始化...');
+      return;
     }
     
-    // 监听设备状态更新
-    mqttClient.subscribe(`status/${this.deviceId}`, (topic, message) => {
-      if (message && message.data) {
-        if ('locked' in message.data) {
-          this.currentStatus = message.data.locked ? DoorStatus.LOCKED : DoorStatus.UNLOCKED;
+    try {
+      // 监听设备状态更新
+      mqttClient.subscribe(`status/${this.deviceId}`, (topic, message) => {
+        if (message && message.data) {
+          if ('locked' in message.data) {
+            this.currentStatus = message.data.locked ? DoorStatus.LOCKED : DoorStatus.UNLOCKED;
+          }
+          if ('battery' in message.data) {
+            this.battery = message.data.battery;
+          }
+          if ('lastActivity' in message.data) {
+            this.lastActivity = new Date(message.data.lastActivity);
+          }
+          
+          this.emit('status-update', this.getDoorInfo());
         }
-        if ('battery' in message.data) {
-          this.battery = message.data.battery;
-        }
-        if ('lastActivity' in message.data) {
-          this.lastActivity = new Date(message.data.lastActivity);
-        }
-        
-        this.emit('status-update', this.getDoorInfo());
-      }
-    });
+      });
+      
+      console.log(`[门锁] 已订阅MQTT主题: status/${this.deviceId}`);
+    } catch (error) {
+      console.error('[门锁] 设置MQTT监听失败:', error);
+    }
   }
   
   // 获取门锁信息
@@ -116,138 +137,157 @@ export class DoorController extends EventEmitter {
     };
   }
   
-  // 使用密码验证并开门
-  public async unlockWithPassword(password: string): Promise<AuthResult> {
+  // 使用密码解锁
+  public async unlockWithPassword(username: string, password: string): Promise<UnlockResult> {
     // 检查是否被锁定
     if (this.isLockedOut()) {
       const remainingTime = this.getRemainingLockoutTime();
       return {
         success: false,
-        method: AuthMethod.PASSWORD,
-        timestamp: Date.now(),
-        message: `密码输入错误次数过多，请在${Math.ceil(remainingTime / 60000)}分钟后重试`
+        message: `账户已锁定，请在${Math.ceil(remainingTime / 60000)}分钟后重试`,
+        error: 'ACCOUNT_LOCKED'
       };
     }
     
     // 验证密码
-    let validPassword = false;
-    for (const [userId, validPwd] of this.passwords.entries()) {
-      if (password === validPwd) {
-        validPassword = true;
-        
-        // 重置错误尝试次数
+    if (!this.passwords.has(username) || this.passwords.get(username) !== password) {
+      this.passwordSettings.attempts++;
+      
+      // 检查是否达到最大尝试次数
+      if (this.passwordSettings.attempts >= this.passwordSettings.maxAttempts) {
+        this.lockoutUntil = new Date(Date.now() + this.passwordSettings.lockoutTime);
         this.passwordSettings.attempts = 0;
         
-        // 解锁门
-        await this.unlock();
-        
         return {
-          success: true,
-          method: AuthMethod.PASSWORD,
-          timestamp: Date.now(),
-          userId,
-          message: '验证成功，门已开启'
+          success: false,
+          message: `密码错误，账户已锁定${this.passwordSettings.lockoutTime / 60000}分钟`,
+          error: 'MAX_ATTEMPTS_REACHED'
         };
       }
+      
+      return {
+        success: false,
+        message: `密码错误，还剩${this.passwordSettings.maxAttempts - this.passwordSettings.attempts}次尝试机会`,
+        error: 'INVALID_PASSWORD'
+      };
     }
     
-    // 密码错误，增加错误尝试次数
-    this.passwordSettings.attempts++;
+    // 密码正确，重置尝试次数
+    this.passwordSettings.attempts = 0;
     
-    // 检查是否需要锁定
-    if (this.passwordSettings.attempts >= this.passwordSettings.maxAttempts) {
-      this.lockoutUntil = new Date(Date.now() + this.passwordSettings.lockoutTime);
-      console.log(`[门锁] 密码错误次数过多，锁定至 ${this.lockoutUntil.toLocaleString()}`);
-    }
-    
-    return {
-      success: false,
-      method: AuthMethod.PASSWORD,
-      timestamp: Date.now(),
-      message: `密码错误，还有${this.passwordSettings.maxAttempts - this.passwordSettings.attempts}次尝试机会`
-    };
-  }
-  
-  // 使用指纹验证并开门
-  public async unlockWithFingerprint(): Promise<AuthResult> {
-    // 模拟指纹验证延迟和成功率
-    return new Promise(resolve => {
-      setTimeout(() => {
-        // 80%的成功率
-        const success = Math.random() < 0.8;
-        
-        if (success) {
-          this.unlock().then(() => {
-            resolve({
-              success: true,
-              method: AuthMethod.FINGERPRINT,
-              timestamp: Date.now(),
-              userId: 'fingerprint-user',
-              message: '指纹验证成功，门已开启'
-            });
-          });
-        } else {
-          resolve({
-            success: false,
-            method: AuthMethod.FINGERPRINT,
-            timestamp: Date.now(),
-            message: '指纹验证失败，请重试'
-          });
-        }
-      }, 1500);
-    });
-  }
-  
-  // 使用蓝牙验证并开门
-  public async unlockWithBluetooth(): Promise<AuthResult> {
-    // 模拟蓝牙验证延迟和成功率
-    return new Promise(resolve => {
-      setTimeout(() => {
-        // 90%的成功率
-        const success = Math.random() < 0.9;
-        
-        if (success) {
-          this.unlock().then(() => {
-            resolve({
-              success: true,
-              method: AuthMethod.BLUETOOTH,
-              timestamp: Date.now(),
-              userId: 'bluetooth-user',
-              message: '蓝牙验证成功，门已开启'
-            });
-          });
-        } else {
-          resolve({
-            success: false,
-            method: AuthMethod.BLUETOOTH,
-            timestamp: Date.now(),
-            message: '蓝牙验证失败，请重试'
-          });
-        }
-      }, 1000);
-    });
-  }
-  
-  // 远程开门
-  public async unlockRemotely(adminUserId: string = 'admin'): Promise<AuthResult> {
     try {
+      // 解锁门
       await this.unlock();
       
       return {
         success: true,
-        method: AuthMethod.REMOTE,
-        timestamp: Date.now(),
-        userId: adminUserId,
-        message: '远程开门成功'
+        message: '门已解锁'
       };
     } catch (error) {
       return {
         success: false,
-        method: AuthMethod.REMOTE,
-        timestamp: Date.now(),
-        message: '远程开门失败: ' + (error instanceof Error ? error.message : String(error))
+        message: '解锁失败',
+        error: error instanceof Error ? error.message : String(error)
       };
     }
+  }
+  
+  // 使用指纹解锁
+  public async unlockWithFingerprint(fingerprintId: number): Promise<UnlockResult> {
+    // 模拟指纹验证
+    const validFingerprints = [1, 2, 3]; // 假设这些是有效的指纹ID
+    
+    if (!validFingerprints.includes(fingerprintId)) {
+      return {
+        success: false,
+        message: '指纹不匹配',
+        error: 'INVALID_FINGERPRINT'
+      };
+    }
+    
+    try {
+      // 解锁门
+      await this.unlock();
+      
+      return {
+        success: true,
+        message: '门已解锁'
+      };
+    } catch (error) {
+      return {
+        success: false,
+        message: '解锁失败',
+        error: error instanceof Error ? error.message : String(error)
+      };
+    }
+  }
+  
+  // 使用蓝牙解锁
+  public async unlockWithBluetooth(deviceId: string): Promise<UnlockResult> {
+    // 模拟蓝牙验证
+    const validDevices = ['bt-device-001', 'bt-device-002']; // 假设这些是有效的蓝牙设备ID
+    
+    if (!validDevices.includes(deviceId)) {
+      return {
+        success: false,
+        message: '未授权的蓝牙设备',
+        error: 'UNAUTHORIZED_DEVICE'
+      };
+    }
+    
+    try {
+      // 解锁门
+      await this.unlock();
+      
+      return {
+        success: true,
+        message: '门已解锁'
+      };
+    } catch (error) {
+      return {
+        success: false,
+        message: '解锁失败',
+        error: error instanceof Error ? error.message : String(error)
+      };
+    }
+  }
+  
+  // 远程解锁
+  public async remoteUnlock(userId: string): Promise<UnlockResult> {
+    try {
+      console.log(`[门锁] 用户 ${userId} 请求远程解锁`);
+      
+      // 解锁门
+      await this.unlock();
+      
+      return {
+        success: true,
+        message: '门已远程解锁'
+      };
+    } catch (error) {
+      return {
+        success: false,
+        message: '远程解锁失败',
+        error: error instanceof Error ? error.message : String(error)
+      };
+    }
+  }
+  
+  // 检查是否被锁定
+  private isLockedOut(): boolean {
+    if (!this.lockoutUntil) {
+      return false;
+    }
+    return this.lockoutUntil.getTime() > Date.now();
+  }
+  
+  // 获取剩余锁定时间(毫秒)
+  private getRemainingLockoutTime(): number {
+    if (!this.lockoutUntil) {
+      return 0;
+    }
+    const remaining = this.lockoutUntil.getTime() - Date.now();
+    return remaining > 0 ? remaining : 0;
   }
   
   // 解锁门
@@ -255,6 +295,11 @@ export class DoorController extends EventEmitter {
     try {
       if (this.currentStatus === DoorStatus.UNLOCKED) {
         return;
+      }
+      
+      // 确保MQTT客户端已连接
+      if (!mqttService.isConnected()) {
+        await mqttService.initialize();
       }
       
       // 通过MQTT发送开门命令
@@ -339,49 +384,23 @@ export class DoorController extends EventEmitter {
   
   // 设置自动锁定延迟
   public setAutoLockDelay(delayMs: number): void {
-    if (delayMs < 1000) {
-      throw new Error('自动锁定延迟不能小于1秒');
-    }
-    
     this.autoLockDelay = delayMs;
-    console.log(`[门锁] 设置自动锁定延迟: ${delayMs}ms`);
+    console.log(`[门锁] 自动锁定延迟已设置为 ${delayMs}ms`);
   }
   
   // 添加密码
-  public addPassword(userId: string, password: string): void {
-    if (password.length < 6) {
-      throw new Error('密码长度不能小于6位');
-    }
-    
-    this.passwords.set(userId, password);
-    console.log(`[门锁] 已添加/更新密码: ${userId}`);
+  public addPassword(username: string, password: string): void {
+    this.passwords.set(username, password);
+    console.log(`[门锁] 已添加密码: ${username}`);
   }
   
   // 删除密码
-  public removePassword(userId: string): boolean {
-    const result = this.passwords.delete(userId);
+  public removePassword(username: string): boolean {
+    const result = this.passwords.delete(username);
     if (result) {
-      console.log(`[门锁] 已删除密码: ${userId}`);
+      console.log(`[门锁] 已删除密码: ${username}`);
     }
     return result;
-  }
-  
-  // 检查是否被锁定
-  private isLockedOut(): boolean {
-    if (!this.lockoutUntil) {
-      return false;
-    }
-    
-    return new Date() < this.lockoutUntil;
-  }
-  
-  // 获取锁定剩余时间（毫秒）
-  private getRemainingLockoutTime(): number {
-    if (!this.lockoutUntil || new Date() > this.lockoutUntil) {
-      return 0;
-    }
-    
-    return this.lockoutUntil.getTime() - Date.now();
   }
 }
 

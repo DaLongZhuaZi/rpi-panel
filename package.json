@@ -1,6 +1,6 @@
 {
   "name": "rpi-panel",
-  "version": "0.1.0",
+  "version": "1.0.3",
   "private": true,
   "dependencies": {
     "@ant-design/icons": "^6.0.0",
@@ -13,6 +13,7 @@
     "@types/react-dom": "^18.2.18",
     "autoprefixer": "^10.4.16",
     "axios": "^1.6.2",
+    "express": "^4.21.2",
     "mqtt": "^5.3.3",
     "postcss": "^8.4.32",
     "react": "^18.2.0",
@@ -24,14 +25,28 @@
     "web-vitals": "^2.1.4"
   },
   "devDependencies": {
+    "@craco/craco": "^7.1.0",
     "@types/react-router-dom": "^5.3.3",
-    "cross-env": "^7.0.3"
+    "adm-zip": "^0.5.10",
+    "buffer": "^6.0.3",
+    "cross-env": "^7.0.3",
+    "os-browserify": "^0.3.0",
+    "path-browserify": "^1.0.1",
+    "process": "^0.11.10",
+    "stream-browserify": "^3.0.0",
+    "util": "^0.12.5"
   },
   "scripts": {
-    "start": "cross-env PORT=4000 react-scripts start",
-    "build": "react-scripts build",
-    "test": "react-scripts test",
-    "eject": "react-scripts eject"
+    "start": "cross-env PORT=4000 craco start",
+    "start:full": "node start-app.js",
+    "build": "craco build",
+    "test": "craco test",
+    "eject": "react-scripts eject",
+    "serve": "node server.js",
+    "update:check": "node rpi-client/update.js check",
+    "update:install": "node rpi-client/update.js update",
+    "update:rollback": "node rpi-client/update.js rollback",
+    "update:version": "node rpi-client/update.js version"
   },
   "eslintConfig": {
     "extends": [

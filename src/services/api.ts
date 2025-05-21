@@ -324,7 +324,7 @@ class Api {
     
     // 使用门锁控制模块验证密码
     try {
-      const authResult = await doorController.unlockWithPassword(password);
+      const authResult = await doorController.unlockWithPassword(password, username);
       if (authResult.success) {
         // 查找匹配的用户
         const user = mockUsers.find(u => u.username === username);

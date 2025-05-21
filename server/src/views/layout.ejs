@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title><%= title %> - 树莓派管理系统</title>
+  <!-- Bootstrap CSS -->
+  <link href="https://cdn.bootcdn.net/ajax/libs/twitter-bootstrap/5.1.3/css/bootstrap.min.css" rel="stylesheet">
+  <!-- Fontawesome -->
+  <link href="https://cdn.bootcdn.net/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+  <!-- Custom Styles -->
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      background-color: #f8f9fa;
+      padding-bottom: 40px;
+    }
+    .navbar {
+      background-color: #343a40;
+    }
+    .navbar-brand {
+      font-weight: 700;
+    }
+    .sidebar {
+      position: fixed;
+      top: 0;
+      bottom: 0;
+      left: 0;
+      z-index: 100;
+      padding: 48px 0 0;
+      box-shadow: inset -1px 0 0 rgba(0, 0, 0, .1);
+      background-color: #f8f9fa;
+      width: 250px;
+    }
+    .sidebar-sticky {
+      position: relative;
+      top: 0;
+      height: calc(100vh - 48px);
+      padding-top: .5rem;
+      overflow-x: hidden;
+      overflow-y: auto;
+    }
+    .sidebar .nav-link {
+      font-weight: 500;
+      color: #333;
+      padding: .75rem 1rem;
+      border-radius: .25rem;
+      margin: 0 .5rem .5rem .5rem;
+    }
+    .sidebar .nav-link:hover {
+      background-color: #e9ecef;
+    }
+    .sidebar .nav-link.active {
+      color: #fff;
+      background-color: #2470dc;
+    }
+    .sidebar .nav-link i {
+      margin-right: .5rem;
+      width: 24px;
+      text-align: center;
+    }
+    .main-content {
+      margin-left: 250px;
+      padding: 1rem 1.5rem;
+    }
+    .card {
+      margin-bottom: 1.5rem;
+      box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+      border: none;
+    }
+    .card-header {
+      background-color: rgba(0, 0, 0, 0.03);
+      font-weight: 600;
+    }
+    .footer {
+      position: fixed;
+      bottom: 0;
+      width: 100%;
+      height: 40px;
+      line-height: 40px;
+      background-color: #f5f5f5;
+      text-align: center;
+      font-size: 0.85rem;
+      color: #6c757d;
+      z-index: 1000;
+    }
+    .notification {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      z-index: 9999;
+      min-width: 300px;
+    }
+    .badge-online {
+      background-color: #28a745;
+      color: white;
+    }
+    .badge-offline {
+      background-color: #dc3545;
+      color: white;
+    }
+    .i2c-device {
+      border: 1px solid #dee2e6;
+      border-radius: 4px;
+      padding: 10px;
+      margin-bottom: 10px;
+    }
+    .i2c-address {
+      background-color: #e9ecef;
+      padding: 2px 6px;
+      border-radius: 4px;
+      margin: 0 8px;
+      font-family: monospace;
+    }
+    /* 响应式调整 */
+    @media (max-width: 767.98px) {
+      .sidebar {
+        width: 100%;
+        height: auto;
+        position: relative;
+        padding: 0;
+      }
+      .sidebar-sticky {
+        height: auto;
+      }
+      .main-content {
+        margin-left: 0;
+      }
+    }
+  </style>
+</head>
+<body>
+  <!-- 导航栏 -->
+  <nav class="navbar navbar-expand-md navbar-dark fixed-top">
+    <div class="container-fluid">
+      <a class="navbar-brand" href="/">树莓派管理系统</a>
+      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarCollapse">
+        <span class="navbar-toggler-icon"></span>
+      </button>
+    </div>
+  </nav>
+
+  <!-- 侧边栏 -->
+  <div class="sidebar">
+    <div class="sidebar-sticky">
+      <ul class="nav flex-column">
+        <li class="nav-item">
+          <a class="nav-link <%= activeTab === 'dashboard' ? 'active' : '' %>" href="/">
+            <i class="fas fa-home"></i> 仪表盘
+          </a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link <%= activeTab === 'devices' ? 'active' : '' %>" href="/devices">
+            <i class="fas fa-microchip"></i> 设备管理
+          </a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link <%= activeTab === 'gpio' ? 'active' : '' %>" href="/gpio">
+            <i class="fas fa-plug"></i> GPIO管理
+          </a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link <%= activeTab === 'i2c' ? 'active' : '' %>" href="/i2c">
+            <i class="fas fa-exchange-alt"></i> I2C管理
+          </a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link <%= activeTab === 'logs' ? 'active' : '' %>" href="/logs">
+            <i class="fas fa-clipboard-list"></i> 日志查看
+          </a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link <%= activeTab === 'settings' ? 'active' : '' %>" href="/settings">
+            <i class="fas fa-cog"></i> 系统设置
+          </a>
+        </li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- 主内容区 -->
+  <main class="main-content">
+    <div class="container-fluid">
+      <h1 class="mt-4 mb-4"><%= title %></h1>
+      <!-- 这里是页面内容 -->
+      <%- body %>
+    </div>
+  </main>
+
+  <!-- 页脚 -->
+  <footer class="footer">
+    <div class="container">
+      <span>© <%= new Date().getFullYear() %> 树莓派管理系统 | 版本 1.0.0</span>
+    </div>
+  </footer>
+
+  <!-- 通知容器 -->
+  <div id="notification-container" class="notification"></div>
+
+  <!-- Bootstrap & JQuery -->
+  <script src="https://cdn.bootcdn.net/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+  <script src="https://cdn.bootcdn.net/ajax/libs/twitter-bootstrap/5.1.3/js/bootstrap.bundle.min.js"></script>
+  
+  <!-- 通知函数 -->
+  <script>
+    function showNotification(message, type = 'info') {
+      const container = document.getElementById('notification-container');
+      
+      // 创建通知元素
+      const notification = document.createElement('div');
+      notification.className = `alert alert-${type} alert-dismissible fade show`;
+      notification.role = 'alert';
+      
+      // 设置通知内容
+      notification.innerHTML = `
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+      `;
+      
+      // 添加到容器
+      container.appendChild(notification);
+      
+      // 自动关闭
+      setTimeout(() => {
+        notification.classList.remove('show');
+        setTimeout(() => {
+          container.removeChild(notification);
+        }, 150);
+      }, 3000);
+    }
+    
+    // 将当前时间转换为友好格式
+    function formatTimeAgo(timestamp) {
+      const now = new Date();
+      const date = new Date(timestamp);
+      const seconds = Math.floor((now - date) / 1000);
+      
+      let interval = Math.floor(seconds / 31536000);
+      if (interval > 1) return interval + ' 年前';
+      
+      interval = Math.floor(seconds / 2592000);
+      if (interval > 1) return interval + ' 个月前';
+      
+      interval = Math.floor(seconds / 86400);
+      if (interval > 1) return interval + ' 天前';
+      
+      interval = Math.floor(seconds / 3600);
+      if (interval > 1) return interval + ' 小时前';
+      
+      interval = Math.floor(seconds / 60);
+      if (interval > 1) return interval + ' 分钟前';
+      
+      if (seconds < 10) return '刚刚';
+      
+      return Math.floor(seconds) + ' 秒前';
+    }
+  </script>
+</body>
+</html> 

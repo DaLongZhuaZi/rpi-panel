@@ -1,0 +1,333 @@
+<%- include('layout', { title: title, activeTab: activeTab }) %>
+
+<div class="row">
+  <div class="col-md-6">
+    <div class="card mb-4">
+      <div class="card-header">系统设置</div>
+      <div class="card-body">
+        <form id="system-settings-form">
+          <div class="form-group mb-3">
+            <label for="system-name" class="form-label">系统名称</label>
+            <input type="text" id="system-name" class="form-control" value="<%= settings.systemName || '树莓派管理系统' %>" required>
+          </div>
+          
+          <div class="form-group mb-3">
+            <label for="server-port" class="form-label">服务器端口</label>
+            <input type="number" id="server-port" class="form-control" value="<%= settings.serverPort || 3000 %>" min="1" max="65535" required>
+            <small class="form-text text-muted">更改端口需要重启服务器才能生效</small>
+          </div>
+          
+          <div class="form-group mb-3">
+            <label for="refresh-interval" class="form-label">设备刷新间隔（秒）</label>
+            <input type="number" id="refresh-interval" class="form-control" value="<%= settings.refreshInterval || 60 %>" min="10" max="3600" required>
+          </div>
+          
+          <div class="form-check mb-3">
+            <input type="checkbox" id="enable-websocket" class="form-check-input" <%= settings.enableWebsocket ? 'checked' : '' %>>
+            <label for="enable-websocket" class="form-check-label">启用WebSocket实时更新</label>
+          </div>
+          
+          <button type="submit" class="btn btn-primary">保存系统设置</button>
+        </form>
+      </div>
+    </div>
+    
+    <div class="card mb-4">
+      <div class="card-header">日志设置</div>
+      <div class="card-body">
+        <form id="log-settings-form">
+          <div class="form-group mb-3">
+            <label for="log-level" class="form-label">日志级别</label>
+            <select id="log-level" class="form-control">
+              <option value="debug" <%= settings.logLevel === 'debug' ? 'selected' : '' %>>调试</option>
+              <option value="info" <%= settings.logLevel === 'info' ? 'selected' : '' %>>信息</option>
+              <option value="warn" <%= settings.logLevel === 'warn' ? 'selected' : '' %>>警告</option>
+              <option value="error" <%= settings.logLevel === 'error' ? 'selected' : '' %>>错误</option>
+            </select>
+          </div>
+          
+          <div class="form-group mb-3">
+            <label for="log-retention" class="form-label">日志保留天数</label>
+            <input type="number" id="log-retention" class="form-control" value="<%= settings.logRetention || 7 %>" min="1" max="90" required>
+          </div>
+          
+          <div class="form-check mb-3">
+            <input type="checkbox" id="log-to-console" class="form-check-input" <%= settings.logToConsole ? 'checked' : '' %>>
+            <label for="log-to-console" class="form-check-label">同时输出到控制台</label>
+          </div>
+          
+          <button type="submit" class="btn btn-primary">保存日志设置</button>
+        </form>
+      </div>
+    </div>
+  </div>
+  
+  <div class="col-md-6">
+    <div class="card mb-4">
+      <div class="card-header">备份与恢复</div>
+      <div class="card-body">
+        <div class="d-grid gap-3">
+          <button type="button" id="backup-btn" class="btn btn-success">
+            <i class="fas fa-download"></i> 备份系统配置
+          </button>
+          
+          <div class="form-group">
+            <label for="restore-file" class="form-label">恢复配置</label>
+            <input type="file" id="restore-file" class="form-control" accept=".json">
+          </div>
+          
+          <button type="button" id="restore-btn" class="btn btn-warning">
+            <i class="fas fa-upload"></i> 恢复系统配置
+          </button>
+        </div>
+        
+        <hr>
+        
+        <div class="d-grid gap-2 mt-3">
+          <button type="button" id="reset-btn" class="btn btn-danger">
+            <i class="fas fa-exclamation-triangle"></i> 重置系统设置
+          </button>
+        </div>
+      </div>
+    </div>
+    
+    <div class="card mb-4">
+      <div class="card-header">系统操作</div>
+      <div class="card-body">
+        <div class="d-grid gap-3">
+          <button type="button" id="restart-server-btn" class="btn btn-warning">
+            <i class="fas fa-sync-alt"></i> 重启服务器
+          </button>
+          
+          <button type="button" id="release-gpio-btn" class="btn btn-primary">
+            <i class="fas fa-plug"></i> 释放所有GPIO引脚
+          </button>
+          
+          <button type="button" id="clear-logs-btn" class="btn btn-secondary">
+            <i class="fas fa-trash-alt"></i> 清除所有日志
+          </button>
+        </div>
+      </div>
+    </div>
+    
+    <div class="card">
+      <div class="card-header">关于系统</div>
+      <div class="card-body">
+        <div class="mb-3">
+          <h5>树莓派管理系统</h5>
+          <p>版本: 1.0.0</p>
+          <p>运行环境: Node.js <%= nodeVersion %></p>
+          <p>操作系统: <%= osInfo %></p>
+        </div>
+        
+        <div id="uptime">
+          系统已运行: <span id="uptime-value">计算中...</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    // 系统设置表单提交
+    const systemSettingsForm = document.getElementById('system-settings-form');
+    systemSettingsForm.addEventListener('submit', function(e) {
+      e.preventDefault();
+      
+      const settings = {
+        systemName: document.getElementById('system-name').value,
+        serverPort: parseInt(document.getElementById('server-port').value, 10),
+        refreshInterval: parseInt(document.getElementById('refresh-interval').value, 10),
+        enableWebsocket: document.getElementById('enable-websocket').checked
+      };
+      
+      saveSettings('system', settings);
+    });
+    
+    // 日志设置表单提交
+    const logSettingsForm = document.getElementById('log-settings-form');
+    logSettingsForm.addEventListener('submit', function(e) {
+      e.preventDefault();
+      
+      const settings = {
+        logLevel: document.getElementById('log-level').value,
+        logRetention: parseInt(document.getElementById('log-retention').value, 10),
+        logToConsole: document.getElementById('log-to-console').checked
+      };
+      
+      saveSettings('log', settings);
+    });
+    
+    // 备份系统配置
+    const backupBtn = document.getElementById('backup-btn');
+    backupBtn.addEventListener('click', function() {
+      fetch('/api/settings/backup')
+        .then(response => response.blob())
+        .then(blob => {
+          const url = window.URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.style.display = 'none';
+          a.href = url;
+          a.download = `rpi-system-backup-${new Date().toISOString().split('T')[0]}.json`;
+          document.body.appendChild(a);
+          a.click();
+          window.URL.revokeObjectURL(url);
+          showNotification('系统配置已备份', 'success');
+        })
+        .catch(error => {
+          showNotification(`备份失败: ${error.message}`, 'error');
+        });
+    });
+    
+    // 恢复系统配置
+    const restoreBtn = document.getElementById('restore-btn');
+    restoreBtn.addEventListener('click', function() {
+      const fileInput = document.getElementById('restore-file');
+      if (!fileInput.files || fileInput.files.length === 0) {
+        showNotification('请选择备份文件', 'error');
+        return;
+      }
+      
+      const file = fileInput.files[0];
+      const formData = new FormData();
+      formData.append('backup', file);
+      
+      if (confirm('恢复配置将覆盖当前所有设置，确定要继续吗？')) {
+        fetch('/api/settings/restore', {
+          method: 'POST',
+          body: formData
+        })
+          .then(response => response.json())
+          .then(data => {
+            showNotification(data.message, 'success');
+            // 2秒后刷新页面
+            setTimeout(() => {
+              location.reload();
+            }, 2000);
+          })
+          .catch(error => {
+            showNotification(`恢复失败: ${error.message}`, 'error');
+          });
+      }
+    });
+    
+    // 重置系统设置
+    const resetBtn = document.getElementById('reset-btn');
+    resetBtn.addEventListener('click', function() {
+      if (confirm('重置将清除所有系统设置，恢复到默认值，此操作不可撤销，确定要继续吗？')) {
+        fetch('/api/settings/reset', {
+          method: 'POST'
+        })
+          .then(response => response.json())
+          .then(data => {
+            showNotification(data.message, 'success');
+            // 2秒后刷新页面
+            setTimeout(() => {
+              location.reload();
+            }, 2000);
+          })
+          .catch(error => {
+            showNotification(`重置失败: ${error.message}`, 'error');
+          });
+      }
+    });
+    
+    // 重启服务器
+    const restartServerBtn = document.getElementById('restart-server-btn');
+    restartServerBtn.addEventListener('click', function() {
+      if (confirm('重启服务器将中断所有连接，确定要继续吗？')) {
+        showNotification('服务器正在重启，请稍候...', 'warning');
+        fetch('/api/system/restart', {
+          method: 'POST'
+        })
+          .then(response => response.json())
+          .catch(error => {
+            // 重启过程中连接会断开，所以不会有成功的响应
+          });
+        
+        // 等待20秒后自动刷新页面
+        setTimeout(() => {
+          location.reload();
+        }, 20000);
+      }
+    });
+    
+    // 释放所有GPIO引脚
+    const releaseGpioBtn = document.getElementById('release-gpio-btn');
+    releaseGpioBtn.addEventListener('click', function() {
+      if (confirm('释放所有GPIO引脚将中断当前的GPIO操作，确定要继续吗？')) {
+        fetch('/api/gpio/release-all', {
+          method: 'POST'
+        })
+          .then(response => response.json())
+          .then(data => {
+            showNotification(data.message, 'success');
+          })
+          .catch(error => {
+            showNotification(`操作失败: ${error.message}`, 'error');
+          });
+      }
+    });
+    
+    // 清除所有日志
+    const clearLogsBtn = document.getElementById('clear-logs-btn');
+    clearLogsBtn.addEventListener('click', function() {
+      if (confirm('确定要清除所有日志吗？此操作不可撤销。')) {
+        fetch('/api/logs/clear', {
+          method: 'POST'
+        })
+          .then(response => response.json())
+          .then(data => {
+            showNotification(data.message, 'success');
+          })
+          .catch(error => {
+            showNotification(`操作失败: ${error.message}`, 'error');
+          });
+      }
+    });
+    
+    // 更新系统运行时间
+    updateUptime();
+    setInterval(updateUptime, 60000); // 每分钟更新一次
+  });
+  
+  // 保存设置
+  function saveSettings(type, settings) {
+    fetch(`/api/settings/${type}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(settings)
+    })
+      .then(response => response.json())
+      .then(data => {
+        showNotification(data.message, 'success');
+      })
+      .catch(error => {
+        showNotification(`保存设置失败: ${error.message}`, 'error');
+      });
+  }
+  
+  // 更新系统运行时间
+  function updateUptime() {
+    fetch('/api/system/uptime')
+      .then(response => response.json())
+      .then(data => {
+        const uptimeValue = document.getElementById('uptime-value');
+        const uptime = data.uptime;
+        
+        let uptimeText = '';
+        if (uptime.days > 0) {
+          uptimeText += `${uptime.days}天 `;
+        }
+        uptimeText += `${uptime.hours}小时 ${uptime.minutes}分钟 ${uptime.seconds}秒`;
+        
+        uptimeValue.textContent = uptimeText;
+      })
+      .catch(error => {
+        console.error('获取运行时间失败:', error);
+      });
+  }
+</script> 
