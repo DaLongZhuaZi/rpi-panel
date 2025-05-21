@@ -2,10 +2,10 @@
   "name": "rpi-panel-client",
   "version": "1.0.0",
   "description": "Raspberry Pi Control Panel Client",
-  "main": "index.js",
+  "main": "src/index.js",
   "scripts": {
-    "start": "node index.js",
-    "dev": "nodemon index.js",
+    "start": "node src/index.js",
+    "dev": "nodemon src/index.js",
     "update": "node update.js",
     "update:check": "node update.js check",
     "test": "echo \"Error: no test specified\" && exit 1"

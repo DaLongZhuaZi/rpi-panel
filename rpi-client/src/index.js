@@ -3,6 +3,15 @@
  * 负责连接服务器并管理设备状态
  */
 
+const path = require('path');
+const cwd = process.cwd();
+const expectedDir = path.resolve(__dirname, '..');
+if (cwd !== expectedDir) {
+  // eslint-disable-next-line no-console
+  console.error(`请在 rpi-client 目录下运行本程序！当前目录: ${cwd}`);
+  process.exit(1);
+}
+
 require('dotenv').config();
 const os = require('os');
 const winston = require('winston');

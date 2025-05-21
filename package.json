@@ -1,6 +1,6 @@
 {
   "name": "rpi-panel",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "private": true,
   "dependencies": {
     "@ant-design/icons": "^6.0.0",

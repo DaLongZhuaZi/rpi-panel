@@ -1,5 +1,5 @@
 {
-  "version": "1.0.0",
-  "releaseDate": "2023-12-01T00:00:00Z",
-  "description": "Initial release of the RPI Control Panel Client"
+  "version": "1.0.1",
+  "releaseDate": "2024-06-09T00:00:00Z",
+  "description": "修复启动入口文件路径，start 脚本指向 src/index.js"
 } 

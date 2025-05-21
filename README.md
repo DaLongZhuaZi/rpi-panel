@@ -28,6 +28,12 @@
   - 自动下载和安装更新
   - 版本回滚机制
   - 系统服务集成
+  
+- **智能路由**：
+  - 来源检测机制，自动区分访问来源
+  - 从服务器访问时自动进入管理界面
+  - 从树莓派访问时显示用户操作界面
+  - 支持通过环境变量自定义服务器IP
 
 ## 快速开始
 
@@ -83,9 +89,22 @@ npm run update:install
 
 ```bash
 cd rpi-client
-chmod +x setup-update-service.sh
-./setup-update-service.sh
+chmod +x update.sh
+sudo ./update.sh
 ```
+
+## 智能路由配置
+
+系统会自动检测访问来源，并根据IP地址决定显示管理界面还是用户界面：
+
+1. 配置服务器IP（可选）：
+   ```bash
+   export SERVER_IP=192.168.5.201
+   node server.js
+   ```
+
+2. 调试IP检测：
+   访问 http://服务器IP:4000/debug-ip 查看IP检测结果
 
 ## 错误排查
 
@@ -97,4 +116,4 @@ chmod +x setup-update-service.sh
 
 ## 许可证
 
-ISC 
+ISC
